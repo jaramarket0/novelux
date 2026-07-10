@@ -1,0 +1,62 @@
+{
+  "project_info": {
+    "project_number": "302060725266",
+    "project_id": "novelux-1a13a",
+    "storage_bucket": "novelux-1a13a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:302060725266:android:bcdc3864fbd7c5a5e324cb",
+        "android_client_info": {
+          "package_name": "com.daniel.novelux.novelux"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "302060725266-86a3njuqdojthuebreah34iebb1huq34.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.daniel.novelux.novelux",
+            "certificate_hash": "b715e5d83033bfba7490ac94c16fea876d1e812c"
+          }
+        },
+        {
+          "client_id": "302060725266-si3i60jiots71onc2o075ta6c63gnkfu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.daniel.novelux.novelux",
+            "certificate_hash": "89bc653682531ddf641c3de8f7fa0655dd1b6cda"
+          }
+        },
+        {
+          "client_id": "302060725266-8lm05k7jgm0dlbl1p2ht5hkfifdg1cq8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCLs9mxq5mazCncdBhY5XOrQdvQ4RyT7Fk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "302060725266-8lm05k7jgm0dlbl1p2ht5hkfifdg1cq8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "302060725266-8r9c6525a9c810f75geigek68a5339u6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.daniel.novelux.novelux"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

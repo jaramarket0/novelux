@@ -1,0 +1,144 @@
+workflows:
+
+  android-release:
+    name: Android Shorebird Release
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+ 
+    environment:
+      # 'keystore_reference' is the name you gave the keystore in
+      # Codemagic UI -> Code signing identities -> Android keystores.
+      android_signing:
+        - keystore_reference
+      groups:
+        - shorebird          # must contain SHOREBIRD_TOKEN (see notes below)
+      vars:
+        PACKAGE_NAME: "com.daniel.novelux.novelux"
+      flutter: stable
+      java: 17
+ 
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+ 
+      - name: Get Flutter packages
+        script: flutter pub get
+ 
+      - name: Inject google-services.json (if you use Firebase)
+        script: |
+          # Stored as a base64 secure env var. Skip this step if you don't use Firebase.
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 --decode > "$CM_BUILD_DIR/android/app/google-services.json"
+          fi
+ 
+      - name: Install Shorebird CLI
+        script: |
+          curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
+          echo 'export PATH="$PATH:$HOME/.shorebird/bin"' >> "$CM_ENV"
+          export PATH="$PATH:$HOME/.shorebird/bin"
+          shorebird --version
+ 
+      - name: Build keystore.properties for Gradle signing
+        script: |
+          # Codemagic's Android code signing UI exposes these CM_* variables.
+          # We translate them into the android/key.properties file your
+          # build.gradle reads, so Gradle (and Shorebird's underlying build)
+          # signs the release correctly. This is what fixes the empty
+          # KEY_PASSWORD error -- the values come straight from Codemagic.
+          cat > "$CM_BUILD_DIR/android/key.properties" <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=$CM_KEYSTORE_PATH
+          EOF
+          echo "key.properties written:"
+          # print keys only, not secret values
+          grep -E '^(keyAlias|storeFile)=' "$CM_BUILD_DIR/android/key.properties"
+ 
+      - name: Shorebird release (Android)
+        script: |
+          export PATH="$PATH:$HOME/.shorebird/bin"
+          # Shorebird builds and signs the AAB using your Gradle signingConfig
+          # (which now reads key.properties). No manual --key-pass needed.
+          shorebird release android \
+            --artifact aab \
+            -- \
+            --build-name=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1) \
+            --build-number=$PROJECT_BUILD_NUMBER
+ 
+    artifacts:
+      - build/**/outputs/bundle/**/*.aab
+      - build/**/outputs/**/mapping.txt
+      - "*.log"
+ 
+    publishing:
+      google_play:
+        # Configure a Google Play service account integration in Codemagic UI,
+        # then this uploads the AAB automatically. Remove this block if you
+        # prefer to upload to Play Console manually.
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
+
+  ios-release:
+    name: iOS Release
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.daniel.novelux.novelux
+      vars:
+        BUNDLE_ID: com.daniel.novelux.novelux
+        XCODE_SCHEME: Runner
+        XCODE_WORKSPACE: ios/Runner.xcworkspace
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Inject GoogleService-Info.plist
+        script: |
+          echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+
+      - name: Set entitlements in Xcode project
+        script: |
+          # Wire Runner.entitlements into the Debug and Release build settings
+          ruby - <<'RUBY'
+          require 'xcodeproj'
+          project_path = 'ios/Runner.xcodeproj'
+          project = Xcodeproj::Project.open(project_path)
+          target = project.targets.find { |t| t.name == 'Runner' }
+          target.build_configurations.each do |config|
+            config.build_settings['CODE_SIGN_ENTITLEMENTS'] = 'Runner/Runner.entitlements'
+          end
+          project.save
+          puts "Entitlements wired for all configurations"
+          RUBY
+
+      - name: Install pods
+        script: |
+          find . -name "Podfile.lock" -delete
+          cd ios && pod install
+
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=$CM_EXPORT_OPTIONS_PATH
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - Internal Testers

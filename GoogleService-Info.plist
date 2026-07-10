@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>302060725266-8r9c6525a9c810f75geigek68a5339u6.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.302060725266-8r9c6525a9c810f75geigek68a5339u6</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>302060725266-si3i60jiots71onc2o075ta6c63gnkfu.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDJsG8CoM8q1Hvq23YCnhriiLZASFlQEsk</string>
+	<key>GCM_SENDER_ID</key>
+	<string>302060725266</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.daniel.novelux.novelux</string>
+	<key>PROJECT_ID</key>
+	<string>novelux-1a13a</string>
+	<key>STORAGE_BUCKET</key>
+	<string>novelux-1a13a.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:302060725266:ios:42361e95548190f0e324cb</string>
+</dict>
+</plist>

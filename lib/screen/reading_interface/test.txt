@@ -1,0 +1,888 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      title: 'NovelUP Clone',
+      theme: ThemeData(
+        primarySwatch: Colors.orange,
+        useMaterial3: true,
+      ),
+      home: NovelUpReadingInterface(),
+      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+// NovelUP Controller
+class NovelUpController extends GetxController {
+  // UI State
+  final RxBool _showTopBar = false.obs;
+  final RxBool _showBottomBar = false.obs;
+  final RxBool _showSettings = false.obs;
+  final RxBool _showContents = false.obs;
+  final RxBool _showListenButton = false.obs;
+  final RxInt _tapCount = 0.obs;
+  
+  // Reading Settings
+  final RxDouble _brightness = 0.5.obs;
+  final RxDouble _fontSize = 18.0.obs;
+  final RxString _selectedFont = 'Lora'.obs;
+  final RxInt _selectedLineSpacing = 3.obs;
+  final RxInt _selectedBackground = 0.obs;
+  final RxString _pageFlipEffect = 'Flip'.obs;
+  final RxBool _volumeKeyTurning = true.obs;
+  
+  // Page Management
+  final RxInt _currentPageIndex = 0.obs;
+  final RxList<String> _pages = <String>[].obs;
+  final RxBool _isFlipping = false.obs;
+  
+  // Book Data
+  final RxString _bookTitle = 'Expelled, But I Hatched a Dragon'.obs;
+  final RxString _currentChapter = 'Chapter 1 Su Yang'.obs;
+  final RxInt _coins = 5.obs;
+  final RxDouble _readingProgress = 0.0.obs;
+  final RxString _readingTime = '14:56'.obs;
+  
+  late ScrollController scrollController;
+
+  // Getters
+  bool get showTopBar => _showTopBar.value;
+  bool get showBottomBar => _showBottomBar.value;
+  bool get showSettings => _showSettings.value;
+  bool get showContents => _showContents.value;
+  bool get showListenButton => _showListenButton.value;
+  double get brightness => _brightness.value;
+  double get fontSize => _fontSize.value;
+  String get selectedFont => _selectedFont.value;
+  int get selectedLineSpacing => _selectedLineSpacing.value;
+  int get selectedBackground => _selectedBackground.value;
+  String get pageFlipEffect => _pageFlipEffect.value;
+  bool get volumeKeyTurning => _volumeKeyTurning.value;
+  String get bookTitle => _bookTitle.value;
+  String get currentChapter => _currentChapter.value;
+  int get coins => _coins.value;
+  double get readingProgress => _readingProgress.value;
+  String get readingTime => _readingTime.value;
+  int get currentPageIndex => _currentPageIndex.value;
+  List<String> get pages => _pages;
+  bool get isFlipping => _isFlipping.value;
+
+  final List<String> fonts = ['System', 'Modern', 'Assistant', 'Lora'];
+  final List<Color> backgroundColors = [
+    Color(0xFFFFF2D4), // Sepia
+    Color(0xFFFFFFFF), // White
+    Color(0xFFE8F5E8), // Light Green
+    Color(0xFFE3F2FD), // Light Blue
+    Color(0xFFFCE4EC), // Light Pink
+  ];
+  
+  final List<String> pageFlipEffects = ['Scroll ↔', 'Scroll ↕', 'Flip', 'Animate'];
+  
+  final List<Chapter> chapters = [
+    Chapter('Chapter 1 Su Yang', isRead: true),
+    Chapter('Chapter 2 The fickleness of human relationships.', isRead: false),
+    Chapter('Chapter 3 This pear should only exist in heaven.', isRead: false),
+    Chapter('Chapter 4 Do you know who my cousin is?', isRead: false),
+    Chapter('Chapter 5 Little Dragon', isRead: false),
+    Chapter('Chapter 6 Beating up the village chief', isRead: false),
+    Chapter('Chapter 7 No matter how long, I will wait.', isRead: false),
+    Chapter('Chapter 8 Country Inn', isRead: false),
+    Chapter('Chapter 9 Heartless Beauty', isRead: false),
+    Chapter('Chapter 10 He is my boyfriend.', isRead: false),
+  ];
+
+  @override
+  void onInit() {
+    super.onInit();
+    scrollController = ScrollController();
+    scrollController.addListener(_onScroll);
+    _initializePages();
+  }
+
+  void _initializePages() {
+    // Split content into pages for flip effect
+    String fullContent = _getSampleContent();
+    List<String> pageList = [];
+    
+    // Simple page splitting based on character count
+    int charsPerPage = 1000;
+    for (int i = 0; i < fullContent.length; i += charsPerPage) {
+      int end = (i + charsPerPage < fullContent.length) 
+          ? i + charsPerPage 
+          : fullContent.length;
+      pageList.add(fullContent.substring(i, end));
+    }
+    
+    _pages.assignAll(pageList);
+  }
+
+  @override
+  void onClose() {
+    scrollController.dispose();
+    super.onClose();
+  }
+
+  void _onScroll() {
+    if (scrollController.hasClients) {
+      final maxScroll = scrollController.position.maxScrollExtent;
+      final currentScroll = scrollController.offset;
+      _readingProgress.value = maxScroll > 0 ? currentScroll / maxScroll : 0.0;
+    }
+  }
+
+  void onScreenTap() {
+    _tapCount.value++;
+    
+    if (_tapCount.value == 1) {
+      // First tap - show top and bottom bars
+      _showTopBar.value = true;
+      _showBottomBar.value = true;
+      _showListenButton.value = true;
+      
+      // Hide after 3 seconds
+      Future.delayed(Duration(seconds: 3), () {
+        if (_tapCount.value == 1) {
+          hideAllControls();
+        }
+      });
+    }
+  }
+
+  void hideAllControls() {
+    _showTopBar.value = false;
+    _showBottomBar.value = false;
+    _showSettings.value = false;
+    _showContents.value = false;
+    _showListenButton.value = false;
+    _tapCount.value = 0;
+  }
+
+  void toggleSettings() {
+    _showSettings.value = !_showSettings.value;
+    if (_showSettings.value) {
+      _showContents.value = false;
+    }
+  }
+
+  void toggleContents() {
+    _showContents.value = !_showContents.value;
+    if (_showContents.value) {
+      _showSettings.value = false;
+    }
+  }
+
+  // Settings Methods
+  void setBrightness(double value) => _brightness.value = value;
+  void setFontSize(double value) => _fontSize.value = value;
+  void setFont(String font) => _selectedFont.value = font;
+  void setLineSpacing(int spacing) => _selectedLineSpacing.value = spacing;
+  void setBackground(int index) => _selectedBackground.value = index;
+  void setPageFlipEffect(String effect) {
+    _pageFlipEffect.value = effect;
+    if (effect == 'Flip' || effect == 'Animate') {
+      _initializePages();
+    }
+  }
+  void toggleVolumeKeyTurning() => _volumeKeyTurning.value = !_volumeKeyTurning.value;
+
+  // Page Navigation Methods
+  void nextPage() {
+    if (_isFlipping.value) return;
+    
+    switch (_pageFlipEffect.value) {
+      case 'Flip':
+      case 'Animate':
+        _flipToNextPage();
+        break;
+      case 'Scroll ↕':
+        _scrollVertical(true);
+        break;
+      case 'Scroll ↔':
+      default:
+        _scrollHorizontal(true);
+        break;
+    }
+  }
+
+  void previousPage() {
+    if (_isFlipping.value) return;
+    
+    switch (_pageFlipEffect.value) {
+      case 'Flip':
+      case 'Animate':
+        _flipToPreviousPage();
+        break;
+      case 'Scroll ↕':
+        _scrollVertical(false);
+        break;
+      case 'Scroll ↔':
+      default:
+        _scrollHorizontal(false);
+        break;
+    }
+  }
+
+  void _flipToNextPage() {
+    if (_currentPageIndex.value < _pages.length - 1) {
+      _isFlipping.value = true;
+      _currentPageIndex.value++;
+      
+      // Simulate flip animation duration
+      Future.delayed(Duration(milliseconds: 600), () {
+        _isFlipping.value = false;
+      });
+    }
+  }
+
+  void _flipToPreviousPage() {
+    if (_currentPageIndex.value > 0) {
+      _isFlipping.value = true;
+      _currentPageIndex.value--;
+      
+      // Simulate flip animation duration
+      Future.delayed(Duration(milliseconds: 600), () {
+        _isFlipping.value = false;
+      });
+    }
+  }
+
+  void _scrollVertical(bool forward) {
+    if (!scrollController.hasClients) return;
+    
+    final viewportHeight = scrollController.position.viewportDimension;
+    final currentOffset = scrollController.offset;
+    final maxScroll = scrollController.position.maxScrollExtent;
+    
+    double newOffset;
+    if (forward) {
+      newOffset = currentOffset + viewportHeight * 0.8;
+      if (newOffset > maxScroll) newOffset = maxScroll;
+    } else {
+      newOffset = currentOffset - viewportHeight * 0.8;
+      if (newOffset < 0) newOffset = 0;
+    }
+    
+    scrollController.animateTo(
+      newOffset,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _scrollHorizontal(bool forward) {
+    // For horizontal scroll, we'll use page-based navigation
+    _scrollVertical(forward);
+  }
+
+  Color get currentBackgroundColor => backgroundColors[selectedBackground];
+  Color get currentTextColor => selectedBackground == 0 ? Color(0xFF8B4513) : Colors.black87;
+  
+  double get currentLineHeight {
+    switch (selectedLineSpacing) {
+      case 0: return 1.2;
+      case 1: return 1.4;
+      case 2: return 1.6;
+      case 3: return 1.8;
+      default: return 1.5;
+    }
+  }
+}
+
+class Chapter {
+  final String title;
+  final bool isRead;
+  
+  Chapter(this.title, {this.isRead = false});
+}
+
+// Main Reading Interface
+class NovelUpReadingInterface extends StatelessWidget {
+  final NovelUpController controller = Get.put(NovelUpController());
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Obx(() => Container(
+        color: controller.currentBackgroundColor,
+        child: Stack(
+          children: [
+            // Main Content
+            _buildMainContent(),
+            
+            // Top Bar
+            if (controller.showTopBar)
+              _buildTopBar(),
+            
+            // Bottom Bar
+            if (controller.showBottomBar)
+              _buildBottomBar(),
+            
+            // Listen Button
+            if (controller.showListenButton && !controller.showSettings && !controller.showContents)
+              _buildListenButton(),
+            
+            // Settings Panel
+            if (controller.showSettings)
+              _buildSettingsPanel(),
+            
+            // Contents Panel
+            if (controller.showContents)
+              _buildContentsPanel(),
+          ],
+        ),
+      )),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return GestureDetector(
+      onTap: controller.onScreenTap,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        child: SingleChildScrollView(
+          controller: controller.scrollController,
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: Text(
+            _getSampleContent(),
+            style: TextStyle(
+              fontSize: controller.fontSize,
+              color: controller.currentTextColor,
+              height: controller.currentLineHeight,
+              fontFamily: controller.selectedFont == 'System' ? null : controller.selectedFont,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        height: kToolbarHeight + 40,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.black54, Colors.transparent],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back_ios, color: Colors.white),
+                  onPressed: () => Get.back(),
+                ),
+                Expanded(
+                  child: Text(
+                    controller.currentChapter,
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star, color: Colors.white, size: 16),
+                      Text('+${controller.coins} coins', 
+                          style: TextStyle(color: Colors.white, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.menu, color: Colors.white),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [Colors.black54, Colors.transparent],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildBottomBarButton(Icons.list, 'Contents', controller.toggleContents),
+                _buildBottomBarButton(Icons.dark_mode, 'Dark mode', () {}),
+                _buildBottomBarButton(Icons.settings, 'Settings', controller.toggleSettings),
+                _buildBottomBarButton(Icons.download, 'Download', () {}),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBarButton(IconData icon, String label, VoidCallback onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 24),
+          SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Colors.white, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListenButton() {
+    return Positioned(
+      bottom: 100,
+      right: 20,
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.headphones, color: Colors.white, size: 20),
+            Text('Listen', style: TextStyle(color: Colors.white, fontSize: 10)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsPanel() {
+    return Positioned.fill(
+      child: Container(
+        color: controller.currentBackgroundColor,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Settings Header
+              Container(
+                padding: EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back_ios),
+                      onPressed: controller.hideAllControls,
+                    ),
+                    Expanded(
+                      child: Text(
+                        controller.currentChapter,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.star, color: Colors.white, size: 16),
+                          Text('+${controller.coins} coins', 
+                              style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.menu),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+
+              // Settings Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Brightness
+                      Text('Brightness', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Icon(Icons.brightness_low, color: Colors.grey),
+                          Expanded(
+                            child: Obx(() => Slider(
+                              value: controller.brightness,
+                              onChanged: controller.setBrightness,
+                              activeColor: Colors.orange,
+                              inactiveColor: Colors.grey[300],
+                            )),
+                          ),
+                          Icon(Icons.brightness_high, color: Colors.grey),
+                        ],
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Font Size
+                      Text('Font size', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Text('A-', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                          Expanded(
+                            child: Obx(() => Slider(
+                              value: controller.fontSize,
+                              min: 12,
+                              max: 28,
+                              onChanged: controller.setFontSize,
+                              activeColor: Colors.orange,
+                              inactiveColor: Colors.grey[300],
+                            )),
+                          ),
+                          Text('A+', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                        ],
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Fonts
+                      Text('Fonts', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 15),
+                      Wrap(
+                        spacing: 10,
+                        children: controller.fonts.map((font) => 
+                          Obx(() => _buildFontChip(font, controller.selectedFont == font))
+                        ).toList(),
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Line Spacing
+                      Text('Line spacing', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(4, (index) => 
+                          Obx(() => _buildLineSpacingChip(index, controller.selectedLineSpacing == index))
+                        ),
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Background Color
+                      Text('Background color', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(controller.backgroundColors.length, (index) => 
+                          Obx(() => _buildColorChip(index, controller.selectedBackground == index))
+                        ),
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Page Flip Effect
+                      Text('Page flip effect', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                      SizedBox(height: 15),
+                      Wrap(
+                        spacing: 10,
+                        children: controller.pageFlipEffects.map((effect) => 
+                          Obx(() => _buildEffectChip(effect, controller.pageFlipEffect == effect))
+                        ).toList(),
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      // Volume Key Turning
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Page turning by volume keys', 
+                              style: TextStyle(fontSize: 16, color: Colors.grey[600])),
+                          Obx(() => Switch(
+                            value: controller.volumeKeyTurning,
+                            onChanged: (_) => controller.toggleVolumeKeyTurning(),
+                            activeColor: Colors.orange,
+                          )),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentsPanel() {
+    return Positioned.fill(
+      child: Container(
+        color: Color(0xFF1a1a1a),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header with book info
+              Container(
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white),
+                    SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            image: DecorationImage(
+                              image: NetworkImage('https://via.placeholder.com/80x100'),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                controller.bookTitle,
+                                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 5),
+                              Text('276 chapters', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.orange,
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            child: Text('Contents', textAlign: TextAlign.center, 
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        SizedBox(width: 15),
+                        Expanded(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[800],
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            child: Text('Notes', textAlign: TextAlign.center, 
+                                style: TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Chapter List Header
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('On-going', style: TextStyle(color: Colors.grey, fontSize: 16)),
+                    Row(
+                      children: [
+                        Text('Descend', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        Icon(Icons.sort, color: Colors.white),
+                        SizedBox(width: 10),
+                        Icon(Icons.refresh, color: Colors.white),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Chapter List
+              Expanded(
+                child: ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: controller.chapters.length,
+                  itemBuilder: (context, index) {
+                    final chapter = controller.chapters[index];
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 15),
+                      child: Text(
+                        chapter.title,
+                        style: TextStyle(
+                          color: index == 0 ? Colors.orange : Colors.white,
+                          fontSize: 16,
+                          fontWeight: index == 0 ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFontChip(String font, bool isSelected) {
+    return GestureDetector(
+      onTap: () => controller.setFont(font),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.orange : Colors.transparent,
+          border: Border.all(color: isSelected ? Colors.orange : Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          font,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey[600],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLineSpacingChip(int index, bool isSelected) {
+    return GestureDetector(
+      onTap: () => controller.setLineSpacing(index),
+      child: Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.orange : Colors.transparent,
+          border: Border.all(color: isSelected ? Colors.orange : Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: List.generate(3, (i) => Container(
+            width: 20,
+            height: 1 + (index * 0.5),
+            margin: EdgeInsets.only(bottom: 2 + (index * 1.0)),
+            color: isSelected ? Colors.white : Colors.grey[600],
+          )),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColorChip(int index, bool isSelected) {
+    return GestureDetector(
+      onTap: () => controller.setBackground(index),
+      child: Container(
+        width: 40,
+        height: 25,
+        decoration: BoxDecoration(
+          color: controller.backgroundColors[index],
+          borderRadius: BorderRadius.circular(20),
+          border: isSelected ? Border.all(color: Colors.orange, width: 3) : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEffectChip(String effect, bool isSelected) {
+    return GestureDetector(
+      onTap: () => controller.setPageFlipEffect(effect),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.orange : Colors.transparent,
+          border: Border.all(color: isSelected ? Colors.orange : Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          effect,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey[600],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getSampleContent() {
+    return """once he got better," the group perked up with interest. "Who told you that?"
+
+"Yesterday, Sanpang came back and was talking to Su by the fish pond. I happened to overhear a bit," Aunt Wang said mysteriously. "He seemed like such a good kid, sigh."
+
+Though their voices were low, Su Yang heard every word, a bitter taste rising in his heart. For two years, he'd endured countless cold remarks and sneers.
+
+He looked down at his stomach, then gazed into the distance, his thoughts drifting far away.
+
+Three years ago, at eighteen, Su Yang had been the top scorer in the college entrance exams in Cloud Sea City, bringing honor to the entire village. Everyone had praised him as a genius, destined for great things.
+
+But fate had other plans. During his first year at university, he was involved in a terrible accident that left him in a coma for six months. When he finally woke up, he discovered that his spiritual core had been completely shattered.
+
+In this world where cultivation determined one's status and future, losing one's spiritual core was equivalent to becoming a cripple. All his dreams and aspirations crumbled in an instant.
+
+The village that had once celebrated him now whispered behind his back. Former friends avoided him, and even his own relatives treated him with pity mixed with disdain.
+
+Su Yang clenched his fists, feeling the familiar ache in his chest. But today felt different somehow. As he sat by the pond, watching the ripples spread across the water's surface, he felt a strange warmth building within him.
+
+Little did he know that this moment would mark the beginning of an extraordinary journey that would change not only his fate but the destiny of the entire realm.""";
+  }
+}
+
+// Additional required dependency for GetX:
+// pubspec.yaml:
+// dependencies:
+//   get: ^4.6.6

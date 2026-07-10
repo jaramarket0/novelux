@@ -1,0 +1,635 @@
+# # This workflow uses actions that are not certified by GitHub.
+# # They are provided by a third-party and are governed by
+# # separate terms of service, privacy policy, and support
+# # documentation.
+
+# name: Dart
+
+# on:
+#   push:
+#     branches: [ "main" ]
+#   pull_request:
+#     branches: [ "main" ]
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - uses: actions/checkout@v4
+
+#       # Note: This workflow uses the latest stable version of the Dart SDK.
+#       # You can specify other versions if desired, see documentation here:
+#       # https://github.com/dart-lang/setup-dart/blob/main/README.md
+#       # - uses: dart-lang/setup-dart@v1
+#       - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+
+#       - name: Install dependencies
+#         run: dart pub get
+
+#       # Uncomment this step to verify the use of 'dart format' on each commit.
+#       # - name: Verify formatting
+#       #   run: dart format --output=none --set-exit-if-changed .
+
+#       # Consider passing '--fatal-infos' for slightly stricter analysis.
+#       - name: Analyze project source
+#         run: dart analyze
+
+#       # Your project will need to have tests in test/ and a dependency on
+#       # package:test for this step to succeed. Note that Flutter projects will
+#       # want to change this to 'flutter test'.
+#       - name: Run tests
+#         run: dart test
+
+
+# name: iOS-ipa-build
+
+
+# on:
+
+#   workflow_dispatch:
+
+
+# jobs:
+
+#   build-ios:
+
+#     name: 🎉 iOS Build
+
+#     runs-on: macos-latest
+
+#     steps:
+
+#       - uses: actions/checkout@v3
+
+
+#       - uses: subosito/flutter-action@v2
+
+#         with:
+
+#           channel: 'stable'
+
+#           architecture: x64
+
+#       - run: flutter pub get
+# # This workflow uses actions that are not certified by GitHub.
+# # # They are provided by a third-party and are governed by
+# # # separate terms of service, privacy policy, and support
+# # # documentation.
+
+# # name: Dart
+
+# # on:
+# #   push:
+# #     branches: [ "main" ]
+# #   pull_request:
+# #     branches: [ "main" ]
+
+# # jobs:
+# #   build:
+# #     runs-on: ubuntu-latest
+
+# #     steps:
+# #       - uses: actions/checkout@v4
+
+# #       # Note: This workflow uses the latest stable version of the Dart SDK.
+# #       # You can specify other versions if desired, see documentation here:
+# #       # https://github.com/dart-lang/setup-dart/blob/main/README.md
+# #       # - uses: dart-lang/setup-dart@v1
+# #       - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+
+# #       - name: Install dependencies
+# #         run: dart pub get
+
+# #       # Uncomment this step to verify the use of 'dart format' on each commit.
+# #       # - name: Verify formatting
+# #       #   run: dart format --output=none --set-exit-if-changed .
+
+# #       # Consider passing '--fatal-infos' for slightly stricter analysis.
+# #       - name: Analyze project source
+# #         run: dart analyze
+
+# #       # Your project will need to have tests in test/ and a dependency on
+# #       # package:test for this step to succeed. Note that Flutter projects will
+# #       # want to change this to 'flutter test'.
+# #       - name: Run tests
+# #         run: dart test
+
+
+# # name: iOS-ipa-build
+
+
+# # on:
+
+# #   workflow_dispatch:
+
+
+# # jobs:
+
+# #   build-ios:
+
+# #     name: 🎉 iOS Build
+
+# #     runs-on: macos-latest
+
+# #     steps:
+
+# #       - uses: actions/checkout@v3
+
+
+# #       - uses: subosito/flutter-action@v2
+
+# #         with:
+
+# #           channel: 'stable'
+
+# #           architecture: x64
+
+# #       - run: flutter pub get
+
+
+     
+
+
+
+#       - run: pod repo update
+
+#         working-directory: ios
+
+
+#       - run: flutter build ios --release --no-codesign
+
+
+#       - run: mkdir Payload
+
+#         working-directory: build/ios/iphoneos
+
+
+#       - run: mv Runner.app/ Payload
+
+#         working-directory: build/ios/iphoneos
+
+
+#       - name: Zip output
+
+#         run: zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+#         working-directory: build/ios/iphoneos
+
+
+#       - name: Upload binaries to release
+
+#         uses: svenstaro/upload-release-action@v2
+
+#         with:
+
+#           repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+#           file: build/ios/iphoneos/FlutterIpaExport.ipa
+
+#           tag: v1.0
+
+#           overwrite: true
+
+# #       - run: pod repo update
+
+# #         working-directory: ios
+
+
+# #       - run: flutter build ios --release --no-codesign
+
+
+# #       - run: mkdir Payload
+
+# #         working-directory: build/ios/iphoneos
+
+
+# #       - run: mv Runner.app/ Payload
+
+# #         working-directory: build/ios/iphoneos
+
+
+# #       - name: Zip output
+
+# #         run: zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+# #         working-directory: build/ios/iphoneos
+
+
+# #       - name: Upload binaries to release
+
+# #         uses: svenstaro/upload-release-action@v2
+
+# #         with:
+
+# #           repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+# #           file: build/ios/iphoneos/FlutterIpaExport.ipa
+
+# #           tag: v1.0
+
+# #           overwrite: true
+
+# #           body: "This is first release"
+
+
+# # name: iOS-ipa-build
+
+# # on:
+# #   workflow_dispatch:
+
+# # jobs:
+# #   build-ios:
+# #     name: 🎉 iOS Build
+# #     runs-on: macos-latest
+# #     steps:
+# #       - uses: actions/checkout@v3
+
+# #       - uses: subosito/flutter-action@v2
+# #         with:
+# #           channel: 'stable'
+# #           architecture: x64
+
+# #       - name: Install Flutter dependencies
+# #         run: flutter pub get
+
+# #       - name: Create Podfile
+# #         working-directory: ios
+# #         run: |
+# #           cat > Podfile << 'EOF'
+# #           platform :ios, '15.0'
+
+# #           ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# #           project 'Runner', {
+# #             'Debug' => :debug,
+# #             'Profile' => :release,
+# #             'Release' => :release,
+# #           }
+
+# #           def flutter_root
+# #             generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+# #             unless File.exist?(generated_xcode_build_settings_path)
+# #               raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+# #             end
+
+# #             File.foreach(generated_xcode_build_settings_path) do |line|
+# #               matches = line.match(/FLUTTER_ROOT\=(.*)/)
+# #               return matches[1].strip if matches
+# #             end
+# #             raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig and running flutter pub get again"
+# #           end
+
+# #           require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+# #           flutter_ios_podfile_setup
+
+# #           target 'Runner' do
+# #             use_frameworks!
+# #             use_modular_headers!
+
+# #             flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+# #             target 'RunnerTests' do
+# #               inherit! :search_paths
+# #             end
+# #           end
+
+# #           post_install do |installer|
+# #             installer.pods_project.targets.each do |target|
+# #               flutter_additional_ios_build_settings(target)
+# #               target.build_configurations.each do |config|
+# #                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+# #               end
+# #             end
+# #           end
+# #           EOF
+
+# #       - name: Set iOS deployment target in project.pbxproj
+# #         run: |
+# #           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+
+# #       - name: Install CocoaPods dependencies
+# #         run: pod install
+# #         working-directory: ios
+
+# #       - name: Build iOS (no codesign)
+# #         run: flutter build ios --release --no-codesign
+
+# #       - name: Package IPA
+# #         working-directory: build/ios/iphoneos
+# #         run: |
+# #           mkdir Payload
+# #           mv Runner.app/ Payload
+# #           zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+# #       - name: Upload IPA to release
+# #         uses: svenstaro/upload-release-action@v2
+# #         with:
+# #           repo_token: ${{ secrets.GITHUB_TOKEN }}
+# #           file: build/ios/iphoneos/FlutterIpaExport.ipa
+# #           tag: v1.0
+# #           overwrite: true
+# #           body: "This is first release"
+
+
+# name: iOS-ipa-build
+
+# on:
+#   workflow_dispatch:
+
+# jobs:
+#   build-ios:
+#     name: 🎉 iOS Build
+#     runs-on: macos-latest
+#     steps:
+#       - uses: actions/checkout@v3
+
+#       - uses: subosito/flutter-action@v2
+#         with:
+#           channel: 'stable'
+#           architecture: x64
+
+#       - name: Install Flutter dependencies
+#         run: flutter pub get
+
+#       - name: Inject GoogleService-Info.plist
+#         run: |
+#           echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
+
+#       # - name: Verify GoogleService-Info.plist
+#       #   run: |
+#       #     ls -la ios/Runner/GoogleService-Info.plist
+#       #     grep -c "GoogleService-Info.plist" ios/Runner.xcodeproj/project.pbxproj
+
+#       - name: Register and verify GoogleService-Info.plist in Xcode project
+#         run: |
+#          # Verify file exists
+#          ls -la ios/Runner/GoogleService-Info.plist
+     
+#          # Add GoogleService-Info.plist to project.pbxproj if not already present
+#          python3 - << 'EOF'
+#          import re
+     
+#          pbxproj_path = "ios/Runner.xcodeproj/project.pbxproj"
+     
+#          with open(pbxproj_path, "r") as f:
+#              content = f.read()
+     
+#          if "GoogleService-Info.plist" in content:
+#              print("Already registered in project.pbxproj")
+#              exit(0)
+     
+#          # Generate deterministic fake UUIDs for the file reference and build file
+#          file_ref_uuid = "AA000000000000000000001"
+#          build_file_uuid = "AA000000000000000000002"
+     
+#          # Add PBXBuildFile entry
+#          build_file_entry = f'\t\t{build_file_uuid} /* GoogleService-Info.plist in Resources */ = {{isa = PBXBuildFile; fileRef = {file_ref_uuid} /* GoogleService-Info.plist */; }};\n'
+#          content = content.replace("/* Begin PBXBuildFile section */\n", f"/* Begin PBXBuildFile section */\n{build_file_entry}")
+     
+#          # Add PBXFileReference entry
+#          file_ref_entry = f'\t\t{file_ref_uuid} /* GoogleService-Info.plist */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "GoogleService-Info.plist"; sourceTree = "<group>"; }};\n'
+#          content = content.replace("/* Begin PBXFileReference section */\n", f"/* Begin PBXFileReference section */\n{file_ref_entry}")
+     
+#          # Add to Runner group (children array)
+#          content = re.sub(
+#              r'(\/\* Runner \*\/ = \{[^}]*?children = \([^)]*?)([\t ]+\);)',
+#              rf'\1\t\t\t\t{file_ref_uuid} /* GoogleService-Info.plist */,\n\2',
+#              content,
+#              flags=re.DOTALL
+#          )
+     
+#          # Add to Resources build phase
+#          content = re.sub(
+#              r'(\/\* Resources \*\/[^}]*?files = \([^)]*?)([\t ]+\);)',
+#              rf'\1\t\t\t\t{build_file_uuid} /* GoogleService-Info.plist in Resources */,\n\2',
+#              content,
+#              flags=re.DOTALL
+#          )
+     
+#          with open(pbxproj_path, "w") as f:
+#              f.write(content)
+     
+#          print("Successfully registered GoogleService-Info.plist in project.pbxproj")
+#          EOF
+     
+#          # Confirm it worked
+#          grep -c "GoogleService-Info.plist" ios/Runner.xcodeproj/project.pbxproj
+
+#       - name: Create Podfile
+#         working-directory: ios
+#         run: |
+#           cat > Podfile << 'EOF'
+#           platform :ios, '15.0'
+
+#           ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+#           project 'Runner', {
+#             'Debug' => :debug,
+#             'Profile' => :release,
+#             'Release' => :release,
+#           }
+
+#           def flutter_root
+#             generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+#             unless File.exist?(generated_xcode_build_settings_path)
+#               raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+#             end
+
+#             File.foreach(generated_xcode_build_settings_path) do |line|
+#               matches = line.match(/FLUTTER_ROOT\=(.*)/)
+#               return matches[1].strip if matches
+#             end
+#             raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig and running flutter pub get again"
+#           end
+
+#           require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+#           flutter_ios_podfile_setup
+
+#           target 'Runner' do
+#             use_frameworks!
+#             use_modular_headers!
+
+#             flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+#             target 'RunnerTests' do
+#               inherit! :search_paths
+#             end
+#           end
+
+#           post_install do |installer|
+#             installer.pods_project.targets.each do |target|
+#               flutter_additional_ios_build_settings(target)
+#               target.build_configurations.each do |config|
+#                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+#               end
+#             end
+#           end
+#           EOF
+
+#       - name: Set iOS deployment target in project.pbxproj
+#         run: |
+#           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+
+#       - name: Install CocoaPods dependencies
+#         run: pod install
+#         working-directory: ios
+
+#       - name: Build iOS (no codesign)
+#         run: flutter build ios --release --no-codesign
+
+#       - name: Package IPA
+#         working-directory: build/ios/iphoneos
+#         run: |
+#           mkdir Payload
+#           mv Runner.app/ Payload
+#           zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+#       - name: Upload IPA to release
+#         uses: svenstaro/upload-release-action@v2
+#         with:
+#           repo_token: ${{ secrets.GITHUB_TOKEN }}
+#           file: build/ios/iphoneos/FlutterIpaExport.ipa
+#           tag: v1.0
+#           overwrite: true
+
+#           body: "This is first release"
+
+
+name: iOS-ipa-build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: 🎉 iOS Build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          architecture: x64
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+
+      # - name: Inject GoogleService-Info.plist
+      #   run: |
+      #     echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
+      #     ls -la ios/Runner/GoogleService-Info.plist
+      - name: Inject GoogleService-Info.plist
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          cp ios/Runner/GoogleService-Info.plist ios/GoogleService-Info.plist
+          ls -la ios/Runner/GoogleService-Info.plist
+          ls -la ios/GoogleService-Info.plist
+
+      - name: Register GoogleService-Info.plist in Xcode project
+        run: |
+          pip3 install pbxproj --quiet --break-system-packages
+          python3 - << 'EOF'
+          from pbxproj import XcodeProject
+
+          project = XcodeProject.load('ios/Runner.xcodeproj/project.pbxproj')
+
+          # Check if already registered to avoid duplicates
+          files = [f.get_name() for f in project.get_files_by_name('GoogleService-Info.plist')]
+          if files:
+              print("GoogleService-Info.plist already registered, skipping.")
+          else:
+              project.add_file(
+                  'GoogleService-Info.plist',
+                  parent=project.get_or_create_group('Runner'),
+                  target_name='Runner',
+                  force=False
+              )
+              project.save()
+              print("Successfully registered GoogleService-Info.plist")
+          EOF
+
+      - name: Verify registration
+        run: |
+          grep -c "GoogleService-Info.plist" ios/Runner.xcodeproj/project.pbxproj
+
+
+      - name: Create Podfile
+        working-directory: ios
+        run: |
+          cat > Podfile << 'EOF'
+          platform :ios, '15.0'
+
+          ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+          project 'Runner', {
+            'Debug' => :debug,
+            'Profile' => :release,
+            'Release' => :release,
+          }
+
+          def flutter_root
+            generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+            unless File.exist?(generated_xcode_build_settings_path)
+              raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+            end
+
+            File.foreach(generated_xcode_build_settings_path) do |line|
+              matches = line.match(/FLUTTER_ROOT\=(.*)/)
+              return matches[1].strip if matches
+            end
+            raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig and running flutter pub get again"
+          end
+
+          require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+          flutter_ios_podfile_setup
+
+          target 'Runner' do
+            use_frameworks!
+            use_modular_headers!
+
+            flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+            target 'RunnerTests' do
+              inherit! :search_paths
+            end
+          end
+
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              flutter_additional_ios_build_settings(target)
+              target.build_configurations.each do |config|
+                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+              end
+            end
+          end
+          EOF
+
+      - name: Set iOS deployment target in project.pbxproj
+        run: |
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = 13.0/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: ios
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        working-directory: build/ios/iphoneos
+        run: |
+          mkdir Payload
+          mv Runner.app/ Payload
+          zip -qq -r -9 FlutterIpaExport.ipa Payload
+
+      - name: Upload IPA to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/ios/iphoneos/FlutterIpaExport.ipa
+          tag: v1.0
+          overwrite: true
+          body: "This is first release"

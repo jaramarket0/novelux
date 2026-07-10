@@ -1,0 +1,6 @@
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+-keep class androidx.credentials.** { *; }
+-keep class com.google.android.gms.auth.** { *; }
+-keep class com.google.android.gms.common.** { *; }
+-dontwarn com.google.android.libraries.identity.googleid.**
+-dontwarn androidx.credentials.**
