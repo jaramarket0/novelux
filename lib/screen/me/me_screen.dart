@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/screen/about/about_screen.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/auth/auth_screens.dart';
@@ -21,17 +22,136 @@ import 'package:novelux/screen/me/controller/me_controller.dart';
 import 'package:novelux/screen/me/vip_screen.dart';
 import 'package:novelux/screen/notification_screen/controller/notifcation_controller.dart';
 import 'package:novelux/screen/notification_screen/notification_screen.dart';
-import 'package:novelux/screen/reward_screen/reward_screen.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/editorial/ce_books_screen.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
 
+  String _planDisplayName(String? subId) {
+    switch (subId) {
+      case kSubWeekly:
+        return 'Weekly';
+      case kSubMonthly:
+        return 'Monthly';
+      case kSubQuarterly:
+        return 'Quarterly';
+      case kSubYearly:
+        return 'Yearly';
+      default:
+        return 'VIP';
+    }
+  }
+
+  int _planDurationDays(String? subId) {
+    switch (subId) {
+      case kSubWeekly:
+        return 7;
+      case kSubMonthly:
+        return 30;
+      case kSubQuarterly:
+        return 90;
+      case kSubYearly:
+        return 365;
+      default:
+        return 30;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  Widget _vipPlanChip(String label, String subId) {
+    final active = subId == IAPService.to.activeSubId.value;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color:
+            active
+                ? Colors.orange.withOpacity(0.18)
+                : Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color:
+              active
+                  ? Colors.orange.withOpacity(0.35)
+                  : Colors.white.withOpacity(0.12),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: active ? Colors.orangeAccent : Colors.white70,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _vipPlanStat(String label, String value, IconData icon, Color tint) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: tint.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: tint.withOpacity(0.18)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: tint, size: 15),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: tint,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Get.find<AuthController>();
     final ctrl = Get.put(MeController());
+    final iap = Get.find<IAPService>();
     final theme = Get.find<ThemeController>();
 
     return AnimatedBuilder(
@@ -41,9 +161,17 @@ class MeScreen extends StatelessWidget {
         final bg = isDark ? const Color(0xFF0d0d0f) : const Color(0xFFF2F2F7);
         final cardBg =
             isDark ? const Color.fromARGB(255, 33, 35, 36) : Colors.white;
+        final surfaceAlt =
+            isDark ? const Color(0xFF17191D) : const Color(0xFFF7F8FC);
+        final borderClr =
+            isDark
+                ? Colors.white.withOpacity(0.08)
+                : Colors.black.withOpacity(0.06);
         final txt = isDark ? Colors.white : const Color(0xFF1a1a1a);
         final sub = isDark ? Colors.grey[400]! : Colors.grey[600]!;
         final divClr = isDark ? const Color(0xFF2a2a2a) : Colors.grey[200]!;
+        final accent = depperBlue;
+        final vipAccent = const Color(0xFFB67C2A);
 
         return Scaffold(
           backgroundColor: bg,
@@ -57,7 +185,12 @@ class MeScreen extends StatelessWidget {
                 children: [
                   // ── Profile header ────────────────────────────────────────
                   Container(
-                    color: isDark ? const Color(0xFF1a1a1a) : Colors.white,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF17191D) : Colors.white,
+                      border: Border(
+                        bottom: BorderSide(color: borderClr, width: 1),
+                      ),
+                    ),
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                     child: Row(
                       children: [
@@ -73,35 +206,38 @@ class MeScreen extends StatelessWidget {
                             CircleAvatar(
                               radius: 32,
                               backgroundColor: depperBlue,
-                              child: (avatar != null && avatar.isNotEmpty)
-                                  ? ClipOval(
-                                      child: CachedNetworkImage(
-                                        imageUrl: _resolveAvatarUrl(avatar),
-                                        width: 64,
-                                        height: 64,
-                                        fit: BoxFit.cover,
-                                        errorWidget: (_, __, ___) => Text(
-                                          auth.username.isNotEmpty
-                                              ? auth.username[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                              child:
+                                  (avatar != null && avatar.isNotEmpty)
+                                      ? ClipOval(
+                                        child: CachedNetworkImage(
+                                          imageUrl: _resolveAvatarUrl(avatar),
+                                          width: 64,
+                                          height: 64,
+                                          fit: BoxFit.cover,
+                                          errorWidget:
+                                              (_, __, ___) => Text(
+                                                auth.username.isNotEmpty
+                                                    ? auth.username[0]
+                                                        .toUpperCase()
+                                                    : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                        ),
+                                      )
+                                      : Text(
+                                        isLoggedIn && auth.username.isNotEmpty
+                                            ? auth.username[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    )
-                                  : Text(
-                                      isLoggedIn && auth.username.isNotEmpty
-                                          ? auth.username[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
                             ),
                             if (auth.isVip)
                               Positioned(
@@ -207,12 +343,11 @@ class MeScreen extends StatelessWidget {
                     ),
                   ),
 
-// the banner is too far up, it should be next up on the button nav bar,
+                  // the banner is too far up, it should be next up on the button nav bar,
 
-// and as well the banner vertical height should not be the same as the image, the image should be stacked on top, while the banner should have height that's only sufficent to wrap the content,
+                  // and as well the banner vertical height should not be the same as the image, the image should be stacked on top, while the banner should have height that's only sufficent to wrap the content,
 
-// note the arrangement as it is is ok, just make that minor modifications.
-
+                  // note the arrangement as it is is ok, just make that minor modifications.
                   Expanded(
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 90),
@@ -220,87 +355,282 @@ class MeScreen extends StatelessWidget {
                         const SizedBox(height: 12),
 
                         // ── VIP Banner ──────────────────────────────────────────
-                        GestureDetector(
-                          onTap: () => Get.to(() => const VipScreen()),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 16),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF2a1a00), Color(0xFF1a1200)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                        if (auth.isVip)
+                          GestureDetector(
+                            onTap: () => Get.to(() => const VipScreen()),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
                               ),
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(14),
-                              ),
-                              border: Border.all(
-                                color: Colors.orange.withOpacity(0.3),
-                              ),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 14,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.diamond_outlined,
-                                    color: Colors.orange,
-                                    size: 18,
-                                  ),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    isDark
+                                        ? const Color(0xFF1B2740)
+                                        : const Color(0xFFEEF4FF),
+                                    isDark
+                                        ? const Color(0xFF131B2C)
+                                        : const Color(0xFFF7F9FD),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                const SizedBox(width: 10),
-                                const Text(
-                                  'VIP',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: borderClr),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 6),
                                   ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF3d2800),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.orange.withOpacity(0.4),
-                                    ),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Text(
-                                        'Subscribe',
-                                        style: TextStyle(
-                                          color: Colors.orange,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: vipAccent.withOpacity(0.14),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.diamond_outlined,
+                                          color: vipAccent,
+                                          size: 20,
                                         ),
                                       ),
-                                      SizedBox(width: 4),
-                                      Icon(
-                                        Icons.chevron_right,
-                                        color: Colors.orange,
-                                        size: 16,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'VIP Active',
+                                              style: TextStyle(
+                                                color: txt,
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            Text(
+                                              'You are enjoying ${_planDisplayName(iap.activeSubId.value)} access',
+                                              style: TextStyle(
+                                                color: sub,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.16),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.green.withOpacity(
+                                              0.25,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.greenAccent,
+                                              size: 13,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Active',
+                                              style: TextStyle(
+                                                color: Colors.greenAccent,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      _vipPlanChip('Weekly', kSubWeekly),
+                                      _vipPlanChip('Monthly', kSubMonthly),
+                                      _vipPlanChip('Quarterly', kSubQuarterly),
+                                      _vipPlanChip('Yearly', kSubYearly),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      _vipPlanStat(
+                                        'Plan',
+                                        _planDisplayName(iap.activeSubId.value),
+                                        Icons.card_membership,
+                                        Colors.orangeAccent,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _vipPlanStat(
+                                        'Starts',
+                                        _formatDate(
+                                          DateTime.now().subtract(
+                                            Duration(
+                                              days: _planDurationDays(
+                                                iap.activeSubId.value,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Icons.calendar_today,
+                                        Colors.amberAccent,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      _vipPlanStat(
+                                        'Ends',
+                                        _formatDate(
+                                          DateTime.now().add(
+                                            Duration(
+                                              days: _planDurationDays(
+                                                iap.activeSubId.value,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        Icons.event_available,
+                                        Colors.lightBlueAccent,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          'Subscription automatically renews until cancelled.',
+                                          style: TextStyle(
+                                            color: sub,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                      Icon(
+                                        Icons.chevron_right,
+                                        color: sub,
+                                        size: 18,
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          GestureDetector(
+                            onTap: () => Get.to(() => const VipScreen()),
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    isDark
+                                        ? const Color(0xFF1B2740)
+                                        : const Color(0xFFEEF4FF),
+                                    isDark
+                                        ? const Color(0xFF131B2C)
+                                        : const Color(0xFFF7F9FD),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                              ],
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(14),
+                                ),
+                                border: Border.all(color: borderClr),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 14,
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: accent.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      Icons.diamond_outlined,
+                                      color: accent,
+                                      size: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'VIP',
+                                    style: TextStyle(
+                                      color: txt,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 7,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF3d2800),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.orange.withOpacity(0.4),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Subscribe',
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.chevron_right,
+                                          color: accent,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                         // VIP perks
                         Container(
                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -308,23 +638,32 @@ class MeScreen extends StatelessWidget {
                             horizontal: 18,
                             vertical: 10,
                           ),
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF221500), Color(0xFF150d00)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.vertical(
+                          decoration: BoxDecoration(
+                            color: surfaceAlt,
+                            borderRadius: const BorderRadius.vertical(
                               bottom: Radius.circular(14),
                             ),
+                            border: Border.all(color: borderClr),
                           ),
                           child: Row(
                             children: [
-                              _vipPerk(Icons.menu_book_outlined, 'Ad-Free'),
+                              _vipPerk(
+                                Icons.menu_book_outlined,
+                                'Ad-Free',
+                                accent,
+                              ),
                               const SizedBox(width: 20),
-                              _vipPerk(Icons.download_outlined, 'Offline'),
+                              _vipPerk(
+                                Icons.download_outlined,
+                                'Offline',
+                                accent,
+                              ),
                               const SizedBox(width: 20),
-                              _vipPerk(Icons.headphones_outlined, 'Audio'),
+                              _vipPerk(
+                                Icons.headphones_outlined,
+                                'Audio',
+                                accent,
+                              ),
                             ],
                           ),
                         ),
@@ -340,7 +679,15 @@ class MeScreen extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: cardBg,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: borderClr),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.03),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: [
@@ -415,7 +762,15 @@ class MeScreen extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: cardBg,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: borderClr),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: _item(
                             txt,
@@ -584,7 +939,9 @@ class MeScreen extends StatelessWidget {
                               Colors.teal,
                               () => Get.to(() => const AuthorDashboardScreen()),
                             )
-                          else if (isLoggedIn && auth.role != 'ce' && !auth.isAuthor)
+                          else if (isLoggedIn &&
+                              auth.role != 'ce' &&
+                              !auth.isAuthor)
                             _item(
                               txt,
                               sub,
@@ -677,14 +1034,18 @@ class MeScreen extends StatelessWidget {
     ),
   );
 
-  Widget _vipPerk(IconData icon, String label) => Row(
+  Widget _vipPerk(IconData icon, String label, Color tint) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, color: Colors.orange.withOpacity(0.8), size: 14),
+      Icon(icon, color: tint, size: 14),
       const SizedBox(width: 4),
       Text(
         label,
-        style: TextStyle(color: Colors.orange.withOpacity(0.8), fontSize: 11),
+        style: TextStyle(
+          color: tint,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     ],
   );
@@ -693,7 +1054,15 @@ class MeScreen extends StatelessWidget {
     margin: const EdgeInsets.symmetric(horizontal: 16),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.black.withOpacity(0.04)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.03),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
+        ),
+      ],
     ),
     child: Column(children: items),
   );
@@ -998,13 +1367,14 @@ class _PreferencesCardState extends State<_PreferencesCard> {
 class _LaurelWreathPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFD4A017)
-      ..style = PaintingStyle.fill;
+    final paint =
+        Paint()
+          ..color = const Color(0xFFD4A017)
+          ..style = PaintingStyle.fill;
 
     final cx = size.width / 2;
     final cy = size.height / 2;
-    final r  = size.width / 2 - 2;
+    final r = size.width / 2 - 2;
 
     for (int i = 0; i < 20; i++) {
       final angle = (i / 20) * 2 * math.pi;
@@ -1014,8 +1384,9 @@ class _LaurelWreathPainter extends CustomPainter {
       canvas.translate(lx, ly);
       canvas.rotate(angle + math.pi / 2);
       canvas.drawOval(
-          Rect.fromCenter(center: Offset.zero, width: 10, height: 5),
-          paint);
+        Rect.fromCenter(center: Offset.zero, width: 10, height: 5),
+        paint,
+      );
       canvas.restore();
     }
   }

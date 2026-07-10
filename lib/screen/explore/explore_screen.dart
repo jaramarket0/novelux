@@ -289,7 +289,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
       CarouselSliderController();
   Timer? _featuredTimer;
   late final ScrollController _hotScrollCtrl;
+  late final ScrollController _genreTabScrollCtrl;
   late final PageController _genrePageCtrl;
+  late final List<GlobalKey> _genreTabKeys;
   int _selectedGenreTab = 0;
   String _rankingNrFilter = 'daily';
   String _rankingMrFilter = 'must-read';
@@ -327,6 +329,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ctrl = Get.put(ExploreController());
     _bannerCtrl = PageController(viewportFraction: 1.0);
     _genrePageCtrl = PageController();
+    _genreTabScrollCtrl = ScrollController();
+    _genreTabKeys = List.generate(_genreTabs.length, (_) => GlobalKey());
     _hotScrollCtrl = ScrollController()..addListener(_onHotScrollChanged);
     // Auto-advance banner every 5s
     Future.delayed(const Duration(seconds: 1), _autoAdvanceBanner);
@@ -386,9 +390,30 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void dispose() {
     _bannerCtrl?.dispose();
     _genrePageCtrl.dispose();
+    _genreTabScrollCtrl.dispose();
     _hotScrollCtrl.dispose();
     _featuredTimer?.cancel();
     super.dispose();
+  }
+
+  void _scrollSelectedGenreTabIntoView() {
+    if (!mounted ||
+        _selectedGenreTab < 0 ||
+        _selectedGenreTab >= _genreTabKeys.length) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final context = _genreTabKeys[_selectedGenreTab].currentContext;
+      if (context == null) return;
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        alignment: 0.5,
+      );
+    });
   }
 
   void _showLanguagePicker(
@@ -700,7 +725,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 Expanded(
                   child: PageView.builder(
                     controller: _genrePageCtrl,
-                    onPageChanged: (i) => setState(() => _selectedGenreTab = i),
+                    onPageChanged: (i) {
+                      setState(() => _selectedGenreTab = i);
+                      _scrollSelectedGenreTabIntoView();
+                    },
                     itemCount: _genreTabs.length,
                     itemBuilder: (_, pageIdx) {
                       if (pageIdx != 0) {
@@ -2195,6 +2223,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
       height: 48,
       color: Colors.transparent,
       child: ListView.separated(
+        controller: _genreTabScrollCtrl,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _genreTabs.length,
@@ -2202,6 +2231,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         itemBuilder: (_, i) {
           final sel = i == _selectedGenreTab;
           return AnimatedContainer(
+            key: _genreTabKeys[i],
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
             margin: const EdgeInsets.symmetric(vertical: 7),
@@ -2227,6 +2257,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 onTap: () {
                   if (_selectedGenreTab == i) return;
                   setState(() => _selectedGenreTab = i);
+                  _scrollSelectedGenreTabIntoView();
                   _genrePageCtrl.animateToPage(
                     i,
                     duration: const Duration(milliseconds: 260),
