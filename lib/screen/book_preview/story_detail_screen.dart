@@ -1,9 +1,11 @@
 import 'dart:developer' as myLog;
+import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/api_service.dart';
@@ -45,10 +47,65 @@ class StoryDetailController extends GetxController {
   // ── Reading progress ───────────────────────────────────────────────────────
   final RxMap<int, double> chapterProgress = <int, double>{}.obs;
 
+  // ── Cover-derived accent color ────────────────────────────────────────────
+  // Starts as the brand color; replaced once the cover's dominant color is
+  // sampled and dulled down, so buttons/icons never flash bright/neon.
+  final Rx<Color> accentColor = depperBlue.obs;
+
   @override
   void onInit() {
     super.onInit();
     _loadProgress();
+  }
+
+  // Downsamples the cover image, averages its pixels, then desaturates and
+  // clamps the lightness so the result always reads as a dull/muted tone
+  // regardless of how vivid the source cover is.
+  Future<void> _extractAccentColor(String coverUrl) async {
+    if (coverUrl.isEmpty) return;
+    try {
+      final res = await http
+          .get(Uri.parse(coverUrl))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return;
+
+      final codec = await ui.instantiateImageCodec(
+        res.bodyBytes,
+        targetWidth: 40,
+      );
+      final frame = await codec.getNextFrame();
+      final byteData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (byteData == null) return;
+
+      final pixels = byteData.buffer.asUint8List();
+      int rSum = 0, gSum = 0, bSum = 0, count = 0;
+      for (int i = 0; i + 3 < pixels.length; i += 4) {
+        final alpha = pixels[i + 3];
+        if (alpha < 200) continue; // skip transparent edges
+        rSum += pixels[i];
+        gSum += pixels[i + 1];
+        bSum += pixels[i + 2];
+        count++;
+      }
+      if (count == 0) return;
+
+      final avg = Color.fromARGB(255, rSum ~/ count, gSum ~/ count, bSum ~/ count);
+      accentColor.value = _muteColor(avg);
+    } catch (e) {
+      myLog.log('Accent color extraction failed: $e', name: 'StoryDetailController');
+    }
+  }
+
+  Color _muteColor(Color c) {
+    final hsl = HSLColor.fromColor(c);
+    // Cap saturation and clamp lightness into a mid range so the accent
+    // never reads as bright/neon, no matter how vivid the cover is.
+    return hsl
+        .withSaturation(hsl.saturation.clamp(0.0, 0.45))
+        .withLightness(hsl.lightness.clamp(0.32, 0.55))
+        .toColor();
   }
 
   // ── Load story ─────────────────────────────────────────────────────────────
@@ -60,6 +117,7 @@ class StoryDetailController extends GetxController {
       final data = res['data'];
       story.value = data;
       isBookmarked.value = data['is_bookmarked'] ?? false;
+      _extractAccentColor(getCoverUrl(data));
       avgRating.value =
           double.tryParse(data['average_rating']?.toString() ?? '0') ?? 0.0;
 
@@ -298,6 +356,31 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  // Icon with a translucent scrim behind it so it stays legible whether it
+  // sits over the cover image or over the collapsed (theme-coloured) app bar.
+  Widget _scrimIcon(IconData icon, {Color? color, double size = 20}) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.35),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color ?? Colors.white, size: size),
+    );
+  }
+
+  void _showReportSheet(BuildContext ctx, String slug) {
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1e1e22),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ReportSheet(slug: slug),
+    );
+  }
+
   void _showUnlockSheet(BuildContext ctx, Map ch) {
     showModalBottomSheet(
       context: ctx,
@@ -341,7 +424,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: depperBlue,
+                      backgroundColor: ctrl.accentColor.value,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -425,7 +508,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         itemBuilder: (context, index) {
                           return DecoratedBox(
                             decoration: BoxDecoration(
-                              color: index.isEven ? depperBlue : Colors.white,
+                              color: index.isEven ? depperBlue : txt,
                               shape: BoxShape.rectangle,
                             ),
                           );
@@ -443,11 +526,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             }
             final story = ctrl.story.value;
             if (story == null) {
-              return const Center(
-                child: Text(
-                  'Story not found',
-                  style: TextStyle(color: Colors.white),
-                ),
+              return Center(
+                child: Text('Story not found', style: TextStyle(color: txt)),
               );
             }
 
@@ -463,34 +543,59 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   pinned: true,
                   backgroundColor: bg,
                   leading: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    icon: _scrimIcon(Icons.arrow_back_ios_rounded, size: 18),
                     onPressed: () => Get.back(),
                   ),
                   actions: [
                     IconButton(
-                      icon: const Icon(
-                        Icons.share_outlined,
-                        color: Colors.white,
-                      ),
+                      icon: _scrimIcon(Icons.share_outlined),
                       onPressed: () => _shareStory(story),
                     ),
                     Obx(
                       () => IconButton(
-                        icon: Icon(
+                        icon: _scrimIcon(
                           ctrl.isBookmarked.value
                               ? Icons.bookmark
                               : Icons.bookmark_border,
                           color:
                               ctrl.isBookmarked.value
-                                  ? depperBlue
-                                  : Colors.white,
+                                  ? ctrl.accentColor.value
+                                  : null,
                         ),
                         onPressed: () => ctrl.toggleBookmark(widget.slug),
                       ),
+                    ),
+                    PopupMenuButton<String>(
+                      icon: _scrimIcon(Icons.more_vert),
+                      color: const Color(0xFF2a2a2a),
+                      onSelected: (v) {
+                        if (v == 'report') {
+                          _showReportSheet(context, widget.slug);
+                        }
+                      },
+                      itemBuilder:
+                          (_) => [
+                            const PopupMenuItem(
+                              value: 'report',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.flag_outlined,
+                                    color: Colors.redAccent,
+                                    size: 16,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'Report',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
@@ -621,6 +726,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         _ExpandableText(
                           text: story['description'] ?? '',
                           sub: sub,
+                          accent: ctrl.accentColor.value,
                         ),
                         const SizedBox(height: 20),
 
@@ -656,12 +762,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 // ── Chapter list ───────────────────────────────────────────────
                 Obx(() {
                   if (ctrl.isLoadingChapters.value) {
-                    return const SliverToBoxAdapter(
+                    return SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: depperBlue,
+                            color: ctrl.accentColor.value,
                             strokeWidth: 2,
                           ),
                         ),
@@ -703,7 +809,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               child: Text(
                                 '-- ${ctrl.story.value!['total_chapters'] - 3} more chapters --',
                                 style: TextStyle(
-                                  color: Colors.grey,
+                                  color: sub,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -729,6 +835,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             started: ctrl.isChapterStarted(chNum),
                             finished: ctrl.isChapterFinished(chNum),
                             onTap: () => _handleChapterTap(context, ch, auth),
+                            txt: txt,
+                            sub: sub,
+                            divClr: divClr,
+                            accent: ctrl.accentColor.value,
                           ),
                         );
                       },
@@ -763,12 +873,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                               Obx(
                                 () =>
                                     ctrl.isLoadingSimilar.value
-                                        ? const SizedBox(
+                                        ? SizedBox(
                                           width: 20,
                                           height: 20,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            color: depperBlue,
+                                            color: ctrl.accentColor.value,
                                           ),
                                         )
                                         : IconButton(
@@ -779,7 +889,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                                           icon: const Icon(
                                             Icons.shuffle_rounded,
                                           ),
-                                          color: depperBlue,
+                                          color: ctrl.accentColor.value,
                                           tooltip: 'Shuffle',
                                         ),
                               ),
@@ -1093,9 +1203,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   ),
                   SizedBox(width: 12),
                   Expanded(
-                    child: ElevatedButton(
+                    child: Obx(
+                      () => ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: depperBlue,
+                        backgroundColor: ctrl.accentColor.value,
                         minimumSize: const Size(0, 52),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(26),
@@ -1172,6 +1283,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         );
                       }),
                     ),
+                    ),
                   ),
 
                   // const SizedBox(width: 12),
@@ -1223,15 +1335,17 @@ class _AuthorRow extends StatelessWidget {
       child: Row(
         children: [
           // Avatar
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: depperBlue.withOpacity(0.18),
-            child: Text(
-              initial,
-              style: TextStyle(
-                color: depperBlue,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
+          Obx(
+            () => CircleAvatar(
+              radius: 18,
+              backgroundColor: ctrl.accentColor.value.withOpacity(0.18),
+              child: Text(
+                initial,
+                style: TextStyle(
+                  color: ctrl.accentColor.value,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -1287,11 +1401,44 @@ class _AuthorRow extends StatelessWidget {
             const SizedBox(width: 8),
           ],
 
+          // Age rating badge
+          if (story['age_rating'] != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color:
+                    story['age_rating'] == '18+'
+                        ? Colors.red.withOpacity(0.15)
+                        : Colors.blueGrey.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color:
+                      story['age_rating'] == '18+'
+                          ? Colors.red.withOpacity(0.4)
+                          : Colors.grey.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                story['age_rating'].toString(),
+                style: TextStyle(
+                  color:
+                      story['age_rating'] == '18+'
+                          ? Colors.red
+                          : Colors.grey[400],
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+
           // ── Follow button ──────────────────────────────────────────────────
           if (username.isNotEmpty)
             Obx(() {
               final following = ctrl.isFollowing.value;
               final loading = ctrl.isFollowLoading.value;
+              final accent = ctrl.accentColor.value;
 
               return GestureDetector(
                 onTap: loading ? null : () => ctrl.toggleFollow(username),
@@ -1302,10 +1449,9 @@ class _AuthorRow extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: following ? Colors.transparent : depperBlue,
+                    color: following ? Colors.transparent : accent,
                     border: Border.all(
-                      color:
-                          following ? Colors.grey.withOpacity(0.5) : depperBlue,
+                      color: following ? Colors.grey.withOpacity(0.5) : accent,
                       width: 1.5,
                     ),
                     borderRadius: BorderRadius.circular(20),
@@ -1451,12 +1597,16 @@ class _StatsBar extends StatelessWidget {
         Row(
           spacing: 3,
           children: [
-            Icon(icon, color: highlight ? depperBlue : sub, size: 16),
+            Icon(
+              icon,
+              color: highlight ? ctrl.accentColor.value : sub,
+              size: 16,
+            ),
             const SizedBox(height: 4),
             Text(
               val.toString(),
               style: TextStyle(
-                color: highlight ? depperBlue : txt,
+                color: highlight ? ctrl.accentColor.value : txt,
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
               ),
@@ -1481,6 +1631,7 @@ class _ChapterTile extends StatelessWidget {
   final bool canRead, isLocked, isUnlocked, started, finished;
   final double progress;
   final VoidCallback onTap;
+  final Color txt, sub, divClr, accent;
 
   const _ChapterTile({
     required this.ch,
@@ -1492,13 +1643,17 @@ class _ChapterTile extends StatelessWidget {
     required this.finished,
     required this.progress,
     required this.onTap,
+    required this.txt,
+    required this.sub,
+    required this.divClr,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      splashColor: depperBlue.withOpacity(0.08),
+      splashColor: accent.withOpacity(0.08),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Column(
@@ -1515,8 +1670,8 @@ class _ChapterTile extends StatelessWidget {
                         finished
                             ? Colors.green.withOpacity(0.15)
                             : canRead
-                            ? depperBlue.withOpacity(0.15)
-                            : const Color(0xFF2a2a2a),
+                            ? accent.withOpacity(0.15)
+                            : divClr,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
@@ -1530,7 +1685,7 @@ class _ChapterTile extends StatelessWidget {
                             : Text(
                               '$chNum',
                               style: TextStyle(
-                                color: canRead ? depperBlue : Colors.grey,
+                                color: canRead ? accent : sub,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -1552,7 +1707,7 @@ class _ChapterTile extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: canRead ? Colors.white : Colors.grey,
+                                color: canRead ? txt : sub,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1561,8 +1716,8 @@ class _ChapterTile extends StatelessWidget {
                           if (started && !finished)
                             _badge(
                               'Continue',
-                              depperBlue.withOpacity(0.2),
-                              depperBlue,
+                              accent.withOpacity(0.2),
+                              accent,
                             ),
                           if (finished)
                             _badge(
@@ -1577,10 +1732,7 @@ class _ChapterTile extends StatelessWidget {
                         children: [
                           Text(
                             '${ch['word_count'] ?? 0} words',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 11,
-                            ),
+                            style: TextStyle(color: sub, fontSize: 11),
                           ),
                           if (isLocked && !isUnlocked) ...[
                             const SizedBox(width: 8),
@@ -1608,8 +1760,7 @@ class _ChapterTile extends StatelessWidget {
                   isLocked && !isUnlocked
                       ? Icons.lock_outline
                       : Icons.play_circle_outline_rounded,
-                  color:
-                      isLocked && !isUnlocked ? Colors.grey[700] : depperBlue,
+                  color: isLocked && !isUnlocked ? sub : accent,
                   size: 20,
                 ),
               ],
@@ -1628,15 +1779,15 @@ class _ChapterTile extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 3,
-                        backgroundColor: const Color(0xFF2a2a2a),
-                        color: finished ? Colors.green : depperBlue,
+                        backgroundColor: divClr,
+                        color: finished ? Colors.green : accent,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       '${(progress * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
-                        color: finished ? Colors.green : Colors.grey,
+                        color: finished ? Colors.green : sub,
                         fontSize: 10,
                       ),
                     ),
@@ -1645,7 +1796,7 @@ class _ChapterTile extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 8),
-            const Divider(color: Color(0xFF1e1e22), height: 1),
+            Divider(color: divClr, height: 1),
           ],
         ),
       ),
@@ -1672,7 +1823,12 @@ class _ChapterTile extends StatelessWidget {
 class _ExpandableText extends StatefulWidget {
   final String text;
   final Color sub;
-  const _ExpandableText({required this.text, required this.sub});
+  final Color accent;
+  const _ExpandableText({
+    required this.text,
+    required this.sub,
+    required this.accent,
+  });
   @override
   State<_ExpandableText> createState() => _ExpandableTextState();
 }
@@ -1702,7 +1858,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
           child: Text(
             _expanded ? 'Show less' : 'Show more',
             style: TextStyle(
-              color: depperBlue,
+              color: widget.accent,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -1771,6 +1927,178 @@ class _CircleActionButton extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  REPORT SHEET
+// ══════════════════════════════════════════════════════════════════════════════
+class _ReportSheet extends StatefulWidget {
+  final String slug;
+  const _ReportSheet({required this.slug});
+
+  @override
+  State<_ReportSheet> createState() => _ReportSheetState();
+}
+
+class _ReportSheetState extends State<_ReportSheet> {
+  static const _reasons = [
+    {'value': 'sexual', 'label': 'Sexual or explicit content'},
+    {'value': 'violence', 'label': 'Graphic violence'},
+    {'value': 'hate', 'label': 'Hate speech or harassment'},
+    {'value': 'copyright', 'label': 'Copyright infringement'},
+    {'value': 'spam', 'label': 'Spam or misleading'},
+    {'value': 'other', 'label': 'Other'},
+  ];
+
+  String _reason = 'sexual';
+  final _detailsCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _detailsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    final res = await ApiService.reportStory(
+      widget.slug,
+      reason: _reason,
+      details: _detailsCtrl.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (res['success'] == true) {
+      Navigator.pop(context);
+      AppAlert.success(
+        'Report submitted — thank you, our editorial team will review this.',
+      );
+    } else {
+      AppAlert.error(res['error']?.toString() ?? 'Could not submit report');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: 24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[700],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Row(
+            children: [
+              Icon(Icons.flag_outlined, color: Colors.redAccent, size: 22),
+              SizedBox(width: 10),
+              Text(
+                'Report this story',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Tell us what\'s wrong — our editorial team reviews every report.',
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2a2a2a),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _reason,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF2a2a2a),
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                items:
+                    _reasons
+                        .map(
+                          (r) => DropdownMenuItem(
+                            value: r['value'],
+                            child: Text(r['label']!),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (v) => setState(() => _reason = v ?? _reason),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _detailsCtrl,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Additional details (optional)…',
+              hintStyle: TextStyle(color: Colors.grey[600]),
+              filled: true,
+              fillColor: const Color(0xFF2a2a2a),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _submitting ? null : _submit,
+              child:
+                  _submitting
+                      ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                      : const Text(
+                        'Submit report',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+            ),
+          ),
         ],
       ),
     );

@@ -24,6 +24,7 @@ import 'package:novelux/screen/notification_screen/controller/notifcation_contro
 import 'package:novelux/screen/notification_screen/notification_screen.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/editorial/ce_books_screen.dart';
+import 'package:novelux/widgets/plan_badge.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
@@ -171,7 +172,6 @@ class MeScreen extends StatelessWidget {
         final sub = isDark ? Colors.grey[400]! : Colors.grey[600]!;
         final divClr = isDark ? const Color(0xFF2a2a2a) : Colors.grey[200]!;
         final accent = depperBlue;
-        final vipAccent = const Color(0xFFB67C2A);
 
         return Scaffold(
           backgroundColor: bg,
@@ -245,12 +245,15 @@ class MeScreen extends StatelessWidget {
                                 right: 0,
                                 child: Container(
                                   padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.amber,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        planBadgeFor(
+                                          iap.activeSubId.value,
+                                        ).color,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.diamond,
+                                  child: Icon(
+                                    planBadgeFor(iap.activeSubId.value).icon,
                                     color: Colors.white,
                                     size: 10,
                                   ),
@@ -394,14 +397,21 @@ class MeScreen extends StatelessWidget {
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: vipAccent.withOpacity(0.14),
+                                          color: planBadgeFor(
+                                            iap.activeSubId.value,
+                                          ).color.withOpacity(0.14),
                                           borderRadius: BorderRadius.circular(
                                             10,
                                           ),
                                         ),
                                         child: Icon(
-                                          Icons.diamond_outlined,
-                                          color: vipAccent,
+                                          planBadgeFor(
+                                            iap.activeSubId.value,
+                                          ).icon,
+                                          color:
+                                              planBadgeFor(
+                                                iap.activeSubId.value,
+                                              ).color,
                                           size: 20,
                                         ),
                                       ),

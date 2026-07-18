@@ -3840,6 +3840,23 @@ class ApiService {
   static Future<Map<String, dynamic>> removeBookmark(String slug) =>
       _request('DELETE', '/stories/$slug/bookmark/');
 
+  /// Report a story for policy-violating content.
+  /// [reason] must be one of: sexual, violence, hate, copyright, spam, other.
+  static Future<Map<String, dynamic>> reportStory(
+    String slug, {
+    required String reason,
+    String details = '',
+    int? chapterNumber,
+  }) => _request(
+    'POST',
+    '/stories/$slug/report/',
+    body: {
+      'reason': reason,
+      'details': details,
+      if (chapterNumber != null) 'chapter_number': chapterNumber,
+    },
+  );
+
   static Future<Map<String, dynamic>> rateStory(
     String slug,
     int score,

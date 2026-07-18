@@ -4,6 +4,7 @@ import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/atomic_webview_screen.dart';
+import 'package:novelux/screen/me/subscription_celebration.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -19,7 +20,10 @@ class VipController extends GetxController {
     final svc = IAPService.to;
     final result = await svc.buySubscription(planId);
     if (result.ok) {
-      AppAlert.success('Welcome to VIP! Enjoy unlimited reading.');
+      Get.dialog(
+        SubscriptionCelebrationDialog(planId: planId),
+        barrierDismissible: false,
+      );
       // Backend learns about the purchase via RevenueCat (verify + webhook);
       // refresh the profile so is_vip, ads and chapter locks update
       Future.delayed(const Duration(seconds: 2), auth.fetchMe);
