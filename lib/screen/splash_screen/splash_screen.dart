@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen>
                 decoration: BoxDecoration(
                   image: DecorationImage(
                     image: AssetImage(
-                      'assets/images/new_splash_screen.jpg',
+                      'assets/images/new-splash-screen.png',
                       // cacheHeight: 1200
                     ),
                     fit: BoxFit.cover,

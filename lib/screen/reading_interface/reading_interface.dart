@@ -27,6 +27,7 @@ import 'package:confetti/confetti.dart';
 import 'package:novelux/config/ad_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/ThemeController.dart';
+import 'package:novelux/config/app_route_observer.dart';
 
 class _GiftRankingSheet extends StatefulWidget {
   final String storySlug;
@@ -153,10 +154,7 @@ class _GiftRankingSheetState extends State<_GiftRankingSheet> {
               children: [
                 // Collapse button
                 GestureDetector(
-                  onTap: () {
-                    NoScreenshot.instance.screenshotOn();
-                    Navigator.pop(context);
-                  },
+                  onTap: () => Navigator.pop(context),
                   child: Container(
                     width: 36,
                     height: 36,
@@ -780,10 +778,7 @@ class _AboutRankingSheet extends StatelessWidget {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: () {
-                    NoScreenshot.instance.screenshotOn();
-                    Navigator.pop(context);
-                  },
+                  onTap: () => Navigator.pop(context),
                   child: const Icon(
                     Icons.arrow_back_ios_rounded,
                     color: Colors.white,
@@ -1023,7 +1018,7 @@ class NovelUpReadingInterface extends StatefulWidget {
 }
 
 class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, RouteAware {
   late final ReadingInterfaceController ctrl;
   late final LibraryController libCtrl;
   late final DownloadController downloadCtrl;
@@ -1048,10 +1043,52 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   static int _suggestionShowCount = 0;
   static const int _suggestionMaxShows = 3;
 
+  // Screenshot lock, scoped strictly to the reading interface.
+  //
+  // A static ref-count guards against overlapping reader lifecycles: when one
+  // reader replaces another via Get.off, the new reader's initState runs
+  // BEFORE the old reader's dispose, and a naive on/off pair would leave the
+  // new reader unprotected.
+  static int _screenshotBlocks = 0;
+  bool _blockingScreenshots = false;
+
+  void _blockScreenshots() {
+    if (_blockingScreenshots) return;
+    _blockingScreenshots = true;
+    _screenshotBlocks++;
+    NoScreenshot.instance.screenshotOff();
+  }
+
+  void _unblockScreenshots() {
+    if (!_blockingScreenshots) return;
+    _blockingScreenshots = false;
+    _screenshotBlocks--;
+    if (_screenshotBlocks <= 0) {
+      _screenshotBlocks = 0;
+      NoScreenshot.instance.screenshotOn();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  // Another page was pushed on top (e.g. the audio player) — allow
+  // screenshots outside the reader.
+  @override
+  void didPushNext() => _unblockScreenshots();
+
+  // The covering page was popped and the reader is visible again.
+  @override
+  void didPopNext() => _blockScreenshots();
+
   @override
   void initState() {
     super.initState();
-    NoScreenshot.instance.screenshotOff();
+    _blockScreenshots();
     ctrl = Get.put(ReadingInterfaceController());
     ctrl.resetUiState();
     if (widget.offlineContent != null) {
@@ -1127,7 +1164,8 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
 
   @override
   void dispose() {
-    NoScreenshot.instance.screenshotOn();
+    appRouteObserver.unsubscribe(this);
+    _unblockScreenshots();
     ctrl.stopReadingTimer();
     _flipCtrl.dispose();
     super.dispose();
@@ -1275,7 +1313,6 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
               Navigator.of(context).pop(); // close sheet
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
-                NoScreenshot.instance.screenshotOn();
                 // Get.off replaces the reading interface in one step (no flash)
                 Get.off(
                   () => NovelUpReadingInterface(

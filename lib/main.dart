@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
+import 'package:novelux/config/app_route_observer.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/language_controller.dart';
 import 'package:novelux/config/translations.dart';
@@ -344,6 +345,7 @@ class MyApp extends StatelessWidget {
         fallbackLocale: const Locale('en', 'US'),
         getPages: AppRoutes.pages,
         initialRoute: AppRoutes.splashScreen,
+        navigatorObservers: [appRouteObserver],
       ),
     );
   }
