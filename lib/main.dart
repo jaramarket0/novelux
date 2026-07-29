@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import 'package:novelux/config/app_route_observer.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/language_controller.dart';
@@ -275,6 +276,16 @@ Future<void> _setupFcmInBackground(SendTokenService sendTokenService) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = true;
+
+  // no_screenshot persists its blocked state natively and re-applies it on
+  // every launch — if the app was killed while the reader was open, the whole
+  // app would start with screenshots blocked. Reset it after the first frame
+  // (the native restore runs on a background executor during activity attach,
+  // so resetting too early could be overwritten). Only the reading interface
+  // turns it off (route-aware, see reading_interface.dart).
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(NoScreenshot.instance.screenshotOn());
+  });
 
   // Desktop SQLite
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {

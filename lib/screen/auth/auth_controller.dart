@@ -485,6 +485,9 @@ class AuthController extends GetxController {
   String? get adFreeExpires => currentUser.value?['ad_free_expires'] as String?;
   String? get audiobookExpires => currentUser.value?['audiobook_expires'] as String?;
   bool get isAuthor => role == 'author';
+  // False for social-login (Google) accounts — defaults to true so accounts
+  // are never offered passwordless deletion unless the backend confirms it.
+  bool get hasPassword => currentUser.value?['has_password'] ?? true;
   String? get avatar => currentUser.value?['avatar'];
   int get readingLevel => currentUser.value?['reading_level'] ?? 1;
   // ── Google Sign-In ──────────────────────────────────────────────────────

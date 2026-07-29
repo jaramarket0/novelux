@@ -3426,7 +3426,11 @@ class ApiService {
           );
           break;
         case 'DELETE':
-          response = await http.delete(uri, headers: headers);
+          response = await http.delete(
+            uri,
+            headers: headers,
+            body: body != null ? jsonEncode(body) : null,
+          );
           break;
         default:
           throw Exception('Unsupported HTTP method: $method');
@@ -3571,6 +3575,15 @@ class ApiService {
 
   static Future<Map<String, dynamic>> becomeAuthor() =>
       _request('POST', '/auth/become-author/');
+
+  // Password is omitted for social-login (Google) accounts — the backend
+  // skips the password check when the account has no usable password.
+  static Future<Map<String, dynamic>> deleteAccount(String password) =>
+      _request(
+        'DELETE',
+        '/auth/delete-account/',
+        body: password.isEmpty ? {} : {'password': password},
+      );
 
   static Future<Map<String, dynamic>> followUser(String username) =>
       _request('POST', '/auth/follow/$username/');

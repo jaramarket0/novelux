@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
+import 'package:novelux/config/ad_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
@@ -28,17 +29,37 @@ class GenreSectionMoreScreen extends StatefulWidget {
   State<GenreSectionMoreScreen> createState() => _GenreSectionMoreScreenState();
 }
 
+// In-memory cache so reopening a "View All" list doesn't refetch — survives
+// for the app session; pull-to-refresh bypasses it.
+class _SectionCache {
+  _SectionCache(this.stories, this.page, this.hasNext);
+  final List<Map> stories;
+  final int page;
+  final bool hasNext;
+}
+
 class _GenreSectionMoreScreenState extends State<GenreSectionMoreScreen> {
+  static final Map<String, _SectionCache> _cache = {};
+
   final List<Map> _stories = [];
   bool _loading = false;
   bool _hasNext = true;
   int _page = 1;
   final ScrollController _scroll = ScrollController();
 
+  String get _cacheKey => '${widget.tab}|${widget.section}';
+
   @override
   void initState() {
     super.initState();
-    _fetch();
+    final cached = _cache[_cacheKey];
+    if (cached != null) {
+      _stories.addAll(cached.stories);
+      _page = cached.page;
+      _hasNext = cached.hasNext;
+    } else {
+      _fetch();
+    }
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
         _fetch();
@@ -68,6 +89,7 @@ class _GenreSectionMoreScreenState extends State<GenreSectionMoreScreen> {
         _stories.addAll((data['results'] as List? ?? []).cast<Map>());
         _hasNext = data['has_next'] == true;
         _page++;
+        _cache[_cacheKey] = _SectionCache(List.of(_stories), _page, _hasNext);
       } else {
         _hasNext = false;
       }
@@ -121,6 +143,7 @@ class _GenreSectionMoreScreenState extends State<GenreSectionMoreScreen> {
         body: RefreshIndicator(
           color: depperBlue,
           onRefresh: () async {
+            _cache.remove(_cacheKey);
             setState(() { _stories.clear(); _hasNext = true; _page = 1; });
             await _fetch();
           },
@@ -131,12 +154,26 @@ class _GenreSectionMoreScreenState extends State<GenreSectionMoreScreen> {
                   : ListView.builder(
                       controller: _scroll,
                       padding: const EdgeInsets.only(top: 8, bottom: 100),
-                      itemCount: _stories.length + (_loading ? 3 : 0),
+                      // Every 11th slot (indices 10, 21, 32…) is a native ad,
+                      // same pattern as the Hot tab's View All screen.
+                      itemCount: _stories.length +
+                          (_stories.length ~/ 10) +
+                          (_loading ? 3 : 0),
                       itemBuilder: (_, idx) {
-                        if (idx >= _stories.length) return _shimmerTile(isDark);
+                        final contentCount =
+                            _stories.length + (_stories.length ~/ 10);
+                        if (idx >= contentCount) return _shimmerTile(isDark);
+                        if ((idx + 1) % 11 == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 6),
+                            child: NativeAdWidget(height: 200),
+                          );
+                        }
+                        final si = idx - (idx ~/ 11);
                         return widget.isClassics
-                            ? _classicsTile(_stories[idx], cardBg, txt, sub)
-                            : _storyTile(_stories[idx], cardBg, txt, sub);
+                            ? _classicsTile(_stories[si], cardBg, txt, sub)
+                            : _storyTile(_stories[si], cardBg, txt, sub);
                       },
                     ),
         ),
@@ -179,15 +216,15 @@ class _GenreSectionMoreScreenState extends State<GenreSectionMoreScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(story['title'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: txt, fontFamily: kFontFamily)),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: txt, fontFamily: kFontFamily)),
                   const SizedBox(height: 6),
                   Text(story['description'] ?? story['synopsis'] ?? '',
                     maxLines: 3, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 8, color: sub, fontFamily: kFontFamily)),
+                    style: TextStyle(fontSize: 12, color: sub, fontFamily: kFontFamily)),
                   const SizedBox(height: 8),
                   Row(children: [
                     Text('${_formatViews(story['total_views'] ?? 0)} Views',
-                      style: TextStyle(fontSize: 10, color: depperBlue, fontWeight: FontWeight.w600, fontFamily: kFontFamily)),
+                      style: TextStyle(fontSize: 12, color: depperBlue, fontWeight: FontWeight.w600, fontFamily: kFontFamily)),
                     if (firstTag.isNotEmpty) ...[
                       const SizedBox(width: 10),
                       Container(

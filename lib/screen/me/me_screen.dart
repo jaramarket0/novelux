@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/api_service.dart';
+import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/screen/about/about_screen.dart';
@@ -1003,6 +1004,15 @@ class MeScreen extends StatelessWidget {
                               Colors.red,
                               () => _signOutDialog(auth),
                             ),
+                            _divider(divClr),
+                            _item(
+                              txt,
+                              sub,
+                              Icons.delete_forever_outlined,
+                              'Delete Account',
+                              Colors.red,
+                              () => _deleteAccountDialog(auth),
+                            ),
                           ],
                           if (!isLoggedIn) ...[
                             _divider(divClr),
@@ -1183,6 +1193,140 @@ class MeScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _deleteAccountDialog(AuthController auth) {
+    final passwordCtrl = TextEditingController();
+    // Social-login (Google) accounts have no password — they confirm by
+    // typing DELETE instead, and the backend skips the password check.
+    final needsPassword = auth.hasPassword;
+    bool obscure = true;
+    bool loading = false;
+    String? error;
+
+    Get.dialog(
+      StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> submit() async {
+            final input = passwordCtrl.text.trim();
+            if (needsPassword && input.isEmpty) {
+              setState(() => error = 'Please enter your password.');
+              return;
+            }
+            if (!needsPassword && input != 'DELETE') {
+              setState(() => error = 'Type DELETE in capitals to confirm.');
+              return;
+            }
+            setState(() {
+              loading = true;
+              error = null;
+            });
+            final res = await ApiService.deleteAccount(
+              needsPassword ? input : '',
+            );
+            if (res['success'] == true) {
+              Get.back();
+              AppAlert.success('Your account has been deleted.');
+              await auth.logout();
+            } else {
+              setState(() {
+                loading = false;
+                error =
+                    res['error']?.toString() ?? 'Could not delete account.';
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF2a2a2a),
+            title: const Text(
+              'Delete Account',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'This permanently deletes your account and personal data. '
+                  'This cannot be undone. '
+                  '${needsPassword ? 'Enter your password to confirm.' : 'Type DELETE to confirm.'}',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: needsPassword && obscure,
+                  enabled: !loading,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: needsPassword ? 'Password' : 'DELETE',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    suffixIcon:
+                        needsPassword
+                            ? IconButton(
+                              icon: Icon(
+                                obscure
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed:
+                                  () => setState(() => obscure = !obscure),
+                            )
+                            : null,
+                    enabledBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey),
+                    ),
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red),
+                    ),
+                  ),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: loading ? null : () => Get.back(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: loading ? null : submit,
+                child:
+                    loading
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                        : const Text(
+                          'Delete',
+                          style: TextStyle(color: Colors.white),
+                        ),
+              ),
+            ],
+          );
+        },
+      ),
+      barrierDismissible: false,
     );
   }
 
