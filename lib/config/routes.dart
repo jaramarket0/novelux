@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/auth/auth_screens.dart';
+import 'package:novelux/screen/auth/dob_gate_screen.dart';
 import 'package:novelux/screen/author/author_dashboard_screen.dart';
 import 'package:novelux/screen/author/preferences_screen.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
@@ -37,6 +38,7 @@ class AppRoutes {
   static const authorDashboard     = '/author_dashboard';
   static const preferencesScreen   = '/preferences_screen';
   static const searchScreen        = '/search_screen';
+  static const dobGateScreen       = '/dob_gate_screen';
 
   static List<GetPage> pages = [
     GetPage(name: splashScreen,       page: () => const SplashScreen()),
@@ -65,5 +67,6 @@ class AppRoutes {
     GetPage(name: preferencesScreen,  page: () => const PreferencesScreen()),
     GetPage(name: searchScreen,        page: () => const SearchScreen()),
     GetPage(name: authorDashboard,    page: () => const AuthorDashboardScreen()),
+    GetPage(name: dobGateScreen,      page: () => const DobGateScreen()),
   ];
 }

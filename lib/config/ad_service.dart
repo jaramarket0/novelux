@@ -3,22 +3,31 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:novelux/config/api_service.dart';
+import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 
 // ── Ad unit IDs ───────────────────────────────────────────────────────────────
-// TODO: replace these test IDs with your real AdMob unit IDs before release.
 class _AdIds {
   static String get banner => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/6300978111'
-      : 'ca-app-pub-3940256099942544/2934735716';
+      ? 'ca-app-pub-7663143456164378/3666172984'
+      : 'ca-app-pub-7663143456164378/5999144126';
 
   static String get interstitial => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/1033173712'
-      : 'ca-app-pub-3940256099942544/4411468910';
+      ? 'ca-app-pub-7663143456164378/9134122082'
+      : 'ca-app-pub-7663143456164378/4741902777';
 
   static String get rewarded => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/5224354917'
-      : 'ca-app-pub-3940256099942544/1712485313';
+      ? 'ca-app-pub-7663143456164378/6507958741'
+      : 'ca-app-pub-7663143456164378/2025788258';
+
+  static String get rewardedInterstitial => Platform.isAndroid
+      ? 'ca-app-pub-7663143456164378/5965033262'
+      : 'ca-app-pub-7663143456164378/1383890501';
+
+  static String get native => Platform.isAndroid
+      ? 'ca-app-pub-7663143456164378/7559637803'
+      : 'ca-app-pub-7663143456164378/9712706586';
 }
 
 // ── VIP guard ─────────────────────────────────────────────────────────────────
@@ -37,10 +46,14 @@ class AdService {
 
   InterstitialAd? _interstitial;
   RewardedAd? _rewarded;
+  RewardedInterstitialAd? _rewardedInterstitial;
   int _chaptersRead = 0;
 
-  // Show an interstitial every N chapter navigations.
+  // Show a plain interstitial every N chapter navigations...
   static const int _interstitialFrequency = 3;
+  // ...but every M chapters, show a rewarded interstitial instead (takes
+  // priority over the plain interstitial on chapters where both would fire).
+  static const int _rewardedInterstitialFrequency = 10;
 
   Future<void> initialize() async {
     // Register your physical test device so ads don't count as real impressions.
@@ -51,6 +64,7 @@ class AdService {
     await MobileAds.instance.initialize();
     _loadInterstitial();
     _loadRewarded();
+    _loadRewardedInterstitial();
   }
 
   // ── Banner ──────────────────────────────────────────────────────────────────
@@ -77,7 +91,9 @@ class AdService {
   void onChapterRead() {
     if (_isVip) return;
     _chaptersRead++;
-    if (_chaptersRead % _interstitialFrequency == 0) {
+    if (_chaptersRead % _rewardedInterstitialFrequency == 0) {
+      _showRewardedInterstitial();
+    } else if (_chaptersRead % _interstitialFrequency == 0) {
       _showInterstitial();
     }
   }
@@ -141,6 +157,54 @@ class AdService {
       onUserEarnedReward: (_, reward) => onRewarded(reward.amount.toInt()),
     );
     return completer.future;
+  }
+
+  // ── Rewarded interstitial ──────────────────────────────────────────────────
+  // Auto-shown every _rewardedInterstitialFrequency chapters (see
+  // onChapterRead) for non-VIP readers — unlike showRewarded(), this isn't
+  // user-initiated, so it's fine if no ad happens to be loaded yet.
+  static const int _rewardedInterstitialCoins = 2;
+
+  void _loadRewardedInterstitial() {
+    RewardedInterstitialAd.load(
+      adUnitId: _AdIds.rewardedInterstitial,
+      request: const AdRequest(),
+      rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
+        onAdLoaded: (ad) => _rewardedInterstitial = ad,
+        onAdFailedToLoad: (_) => _rewardedInterstitial = null,
+      ),
+    );
+  }
+
+  void _showRewardedInterstitial() {
+    final ad = _rewardedInterstitial;
+    if (ad == null) return;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (a) {
+        a.dispose();
+        _rewardedInterstitial = null;
+        _loadRewardedInterstitial();
+      },
+      onAdFailedToShowFullScreenContent: (a, _) {
+        a.dispose();
+        _rewardedInterstitial = null;
+        _loadRewardedInterstitial();
+      },
+    );
+    ad.show(
+      onUserEarnedReward: (_, __) async {
+        final res = await ApiService.claimDailyReward(
+          _rewardedInterstitialCoins,
+          claimType: 'ad',
+        );
+        if (res['success'] == true) {
+          try {
+            await Get.find<AuthController>().refreshCoins();
+          } catch (_) {}
+          AppAlert.success('+$_rewardedInterstitialCoins Coins!');
+        }
+      },
+    );
   }
 }
 
@@ -207,9 +271,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
   NativeAd? _ad;
   bool _loaded = false;
 
-  static String get _unitId => Platform.isAndroid
-      ? 'ca-app-pub-3940256099942544/2247696110'
-      : 'ca-app-pub-3940256099942544/3986624511';
+  static String get _unitId => _AdIds.native;
 
   @override
   void initState() {

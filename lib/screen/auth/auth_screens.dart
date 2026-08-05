@@ -686,12 +686,14 @@
 //   }
 // }
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 Widget _label(String text) => Text(
@@ -955,6 +957,21 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (Platform.isIOS) ...[
+                const SizedBox(height: 14),
+                Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: SignInWithAppleButton(
+                      onPressed:
+                          ctrl.isLoading.value ? () {} : ctrl.loginWithApple,
+                      style: SignInWithAppleButtonStyle.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 40),
             ],
           ),
@@ -1086,6 +1103,50 @@ class RegisterScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    _label('Date of Birth'),
+                    const SizedBox(height: 8),
+                    Obx(
+                      () => GestureDetector(
+                        onTap: () async {
+                          final now = DateTime.now();
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime(
+                              now.year - 18,
+                              now.month,
+                              now.day,
+                            ),
+                            firstDate: DateTime(now.year - 100),
+                            lastDate: now,
+                            helpText: 'Date of birth',
+                          );
+                          if (picked != null) ctrl.dateOfBirth.value = picked;
+                        },
+                        child: InputDecorator(
+                          decoration: _inputDec(
+                            'Select your date of birth',
+                            Icons.cake_outlined,
+                          ),
+                          isEmpty: ctrl.dateOfBirth.value == null,
+                          child:
+                              ctrl.dateOfBirth.value == null
+                                  ? null
+                                  : Text(
+                                    '${ctrl.dateOfBirth.value!.day.toString().padLeft(2, '0')}/'
+                                    '${ctrl.dateOfBirth.value!.month.toString().padLeft(2, '0')}/'
+                                    '${ctrl.dateOfBirth.value!.year}',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'We use this to show age-appropriate content — required to create an account.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
                     ),
                   ],
                 ),
@@ -1247,6 +1308,21 @@ class RegisterScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (Platform.isIOS) ...[
+                const SizedBox(height: 14),
+                Obx(
+                  () => SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: SignInWithAppleButton(
+                      onPressed:
+                          ctrl.isLoading.value ? () {} : ctrl.loginWithApple,
+                      style: SignInWithAppleButtonStyle.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 40),
             ],
           ),

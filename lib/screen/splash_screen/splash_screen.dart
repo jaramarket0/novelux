@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/local_storage.dart';
+import 'package:novelux/screen/auth/auth_controller.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,7 +36,10 @@ class _SplashScreenState extends State<SplashScreen>
     final db = Get.find<DataBase>();
     final token = await db.getToken();
     if (token.isNotEmpty) {
-      Get.offAllNamed('/main_screen');
+      final auth = Get.find<AuthController>();
+      auth.isLoggedIn.value = true;
+      await auth.fetchMe();
+      auth.routePostAuth();
     } else {
       Get.offAllNamed('/onboarding_screen');
     }

@@ -996,6 +996,22 @@ class MeScreen extends StatelessWidget {
                           ),
                           if (isLoggedIn) ...[
                             _divider(divClr),
+                            Obx(
+                              () => _item(
+                                txt,
+                                sub,
+                                Icons.shield_outlined,
+                                'Content & Parental Controls',
+                                Colors.teal,
+                                () => _parentalControlsDialog(auth),
+                                badge:
+                                    auth.currentUser.value?['restricted_mode_enabled'] ==
+                                            true
+                                        ? 'ON'
+                                        : null,
+                              ),
+                            ),
+                            _divider(divClr),
                             _item(
                               txt,
                               sub,
@@ -1320,6 +1336,153 @@ class MeScreen extends StatelessWidget {
                         : const Text(
                           'Delete',
                           style: TextStyle(color: Colors.white),
+                        ),
+              ),
+            ],
+          );
+        },
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  void _parentalControlsDialog(AuthController auth) {
+    final isEnabled = auth.currentUser.value?['restricted_mode_enabled'] == true;
+    final pinCtrl = TextEditingController();
+    final pinConfirmCtrl = TextEditingController();
+    bool loading = false;
+    String? error;
+
+    Get.dialog(
+      StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> submit() async {
+            final pin = pinCtrl.text.trim();
+            if (pin.length < 4 || pin.length > 6 || int.tryParse(pin) == null) {
+              setState(() => error = 'PIN must be 4–6 digits.');
+              return;
+            }
+            if (!isEnabled && pin != pinConfirmCtrl.text.trim()) {
+              setState(() => error = 'PINs do not match.');
+              return;
+            }
+            setState(() {
+              loading = true;
+              error = null;
+            });
+            final res = await ApiService.setRestrictedMode(
+              enable: !isEnabled,
+              pin: pin,
+            );
+            if (res['success'] == true) {
+              final user = Map<String, dynamic>.from(
+                auth.currentUser.value ?? {},
+              );
+              user['restricted_mode_enabled'] = !isEnabled;
+              auth.currentUser.value = user;
+              Get.back();
+              AppAlert.success(
+                !isEnabled
+                    ? 'Restricted mode turned on — 18+ content is now hidden.'
+                    : 'Restricted mode turned off.',
+              );
+            } else {
+              setState(() {
+                loading = false;
+                error = res['error']?.toString() ?? 'Something went wrong.';
+              });
+            }
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF2a2a2a),
+            title: Text(
+              isEnabled ? 'Turn Off Restricted Mode' : 'Turn On Restricted Mode',
+              style: const TextStyle(color: Colors.white),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEnabled
+                      ? 'Enter your PIN to turn off content restrictions and see 18+ stories again.'
+                      : 'Set a PIN to hide 18+/explicit stories on this account. '
+                          'Anyone using this device will need the PIN to turn it back off.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: pinCtrl,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  enabled: !loading,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: isEnabled ? 'Enter PIN' : 'Create a 4–6 digit PIN',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    counterStyle: TextStyle(color: Colors.grey[500]),
+                    enabledBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.grey),
+                    ),
+                    focusedBorder: const UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                ),
+                if (!isEnabled) ...[
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: pinConfirmCtrl,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    enabled: !loading,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Confirm PIN',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      counterStyle: TextStyle(color: Colors.grey[500]),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.teal),
+                      ),
+                    ),
+                  ),
+                ],
+                if (error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    error!,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: loading ? null : () => Get.back(),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                onPressed: loading ? null : submit,
+                child:
+                    loading
+                        ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                        : Text(
+                          isEnabled ? 'Turn Off' : 'Turn On',
+                          style: const TextStyle(color: Colors.white),
                         ),
               ),
             ],

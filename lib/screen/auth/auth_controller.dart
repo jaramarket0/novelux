@@ -292,6 +292,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/local_storage.dart';
@@ -326,6 +327,7 @@ class AuthController extends GetxController {
   }
   final usernameCtrl = TextEditingController();
   final password2Ctrl = TextEditingController();
+  final Rx<DateTime?> dateOfBirth = Rx<DateTime?>(null);
 
   @override
   void onInit() {
@@ -374,9 +376,22 @@ class AuthController extends GetxController {
       isLoggedIn.value = true;
       TextInput.finishAutofillContext();
       await fetchMe();
-      Get.offAllNamed('/main_screen');
+      routePostAuth();
     } else {
       errorMessage.value = res['error'] ?? 'Login failed';
+    }
+  }
+
+  /// Routes to the date-of-birth gate if this account has no DOB on file
+  /// yet (legacy accounts from before age assurance shipped, or Google/Apple
+  /// sign-ins — those providers never give us a birthdate), otherwise to
+  /// [fallbackRoute]. Call this right after fetchMe() on every login path.
+  void routePostAuth({String fallbackRoute = '/main_screen'}) {
+    final dob = currentUser.value?['date_of_birth'];
+    if (dob == null || dob.toString().isEmpty) {
+      Get.offAllNamed('/dob_gate_screen', arguments: fallbackRoute);
+    } else {
+      Get.offAllNamed(fallbackRoute);
     }
   }
 
@@ -392,6 +407,20 @@ class AuthController extends GetxController {
       errorMessage.value = 'Passwords do not match';
       return;
     }
+    if (dateOfBirth.value == null) {
+      errorMessage.value = 'Please enter your date of birth';
+      return;
+    }
+    final today = DateTime.now();
+    final dob = dateOfBirth.value!;
+    final hadBirthdayThisYear =
+        today.month > dob.month ||
+        (today.month == dob.month && today.day >= dob.day);
+    final age = today.year - dob.year - (hadBirthdayThisYear ? 0 : 1);
+    if (age < 13) {
+      errorMessage.value = 'You must be at least 13 years old to create a NoveluX account';
+      return;
+    }
     isLoading.value = true;
     errorMessage.value = '';
     final deviceInfo = await _getDeviceInfo();
@@ -400,6 +429,7 @@ class AuthController extends GetxController {
       email: emailCtrl.text.trim(),
       password1: passwordCtrl.text,
       password2: password2Ctrl.text,
+      dateOfBirth: dateOfBirth.value!,
       role: role,
       deviceId: deviceInfo['device_id'],
       platform: deviceInfo['platform'],
@@ -604,11 +634,9 @@ class AuthController extends GetxController {
           await _db.saveEmail(data['email'] ?? account.email);
           isLoggedIn.value = true;
           await fetchMe();
-          if (data['code'] == 200) {
-            Get.offAllNamed('/main_screen');
-          } else {
-            Get.offAllNamed('/preferences_screen');
-          }
+          routePostAuth(
+            fallbackRoute: data['code'] == 200 ? '/main_screen' : '/preferences_screen',
+          );
         } else {
           errorMessage.value = res['error'] ?? 'Google sign-in failed.';
         }
@@ -623,6 +651,63 @@ class AuthController extends GetxController {
         }
       } else {
         errorMessage.value = 'Google sign-in error: $e';
+      }
+    }
+  }
+
+  Future<void> loginWithApple() async {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final identityToken = credential.identityToken;
+      if (identityToken == null) {
+        errorMessage.value = 'Apple sign-in failed: no identity token.';
+        isLoading.value = false;
+        return;
+      }
+
+      final fullName = [
+        credential.givenName,
+        credential.familyName,
+      ].where((s) => s != null && s.isNotEmpty).join(' ');
+
+      final res = await ApiService.appleSignIn(
+        identityToken: identityToken,
+        email: credential.email,
+        fullName: fullName.isNotEmpty ? fullName : null,
+      );
+      isLoading.value = false;
+
+      if (res['success']) {
+        final data = res['data'];
+        await _db.saveToken(data['access'] ?? data['token'] ?? '');
+        await _db.saveRefresh(data['refresh'] ?? '');
+        await _db.saveUserName(data['username'] ?? '');
+        await _db.saveEmail(data['email'] ?? credential.email ?? '');
+        isLoggedIn.value = true;
+        await fetchMe();
+        routePostAuth(
+          fallbackRoute: data['code'] == 200 ? '/main_screen' : '/preferences_screen',
+        );
+      } else {
+        errorMessage.value = res['error'] ?? 'Apple sign-in failed.';
+      }
+    } catch (e) {
+      isLoading.value = false;
+      if (e is SignInWithAppleAuthorizationException) {
+        if (e.code != AuthorizationErrorCode.canceled) {
+          errorMessage.value = 'Apple sign-in error: ${e.message}';
+        }
+      } else {
+        errorMessage.value = 'Apple sign-in error: $e';
       }
     }
   }

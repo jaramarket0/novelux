@@ -3508,6 +3508,7 @@ class ApiService {
     required String email,
     required String password1,
     required String password2,
+    required DateTime dateOfBirth,
     String role = 'reader',
     String? deviceId,
     String? platform,
@@ -3520,11 +3521,20 @@ class ApiService {
       'password1': password1,
       'password2': password2,
       'role': role,
+      'date_of_birth': _formatDate(dateOfBirth),
       if (deviceId != null && deviceId.isNotEmpty) 'device_id': deviceId,
       if (platform != null && platform.isNotEmpty) 'platform': platform,
     },
     requiresAuth: false,
   );
+
+  static String _formatDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
+
+  static Future<Map<String, dynamic>> setDateOfBirth(DateTime dob) =>
+      _request('PATCH', '/auth/me/', body: {'date_of_birth': _formatDate(dob)});
 
   /// send fcm token to backend
   Future<http.Response> sendFcmToken(Map<String, dynamic> replyData) async {
@@ -4059,8 +4069,14 @@ class ApiService {
   );
   // myLog.log(content);
   // ── Rewards ────────────────────────────────────────────────────────────────
-  static Future<Map<String, dynamic>> claimDailyReward(int coins) =>
-      _request('POST', '/coins/claim-reward/', body: {'coins': coins});
+  static Future<Map<String, dynamic>> claimDailyReward(
+    int coins, {
+    String claimType = 'checkin',
+  }) => _request(
+    'POST',
+    '/coins/claim-reward/',
+    body: {'coins': coins, 'claim_type': claimType},
+  );
 
   // ── VIP / Subscription ─────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getVipStatus() =>
@@ -4189,6 +4205,30 @@ class ApiService {
       if (photoUrl != null) 'photo_url': photoUrl,
     },
     requiresAuth: false,
+  );
+
+  static Future<Map<String, dynamic>> appleSignIn({
+    required String identityToken,
+    String? email,
+    String? fullName,
+  }) => _request(
+    'POST',
+    '/auth/apple/',
+    body: {
+      'identity_token': identityToken,
+      if (email != null) 'email': email,
+      if (fullName != null) 'full_name': fullName,
+    },
+    requiresAuth: false,
+  );
+
+  static Future<Map<String, dynamic>> setRestrictedMode({
+    required bool enable,
+    required String pin,
+  }) => _request(
+    'POST',
+    '/auth/restricted-mode/',
+    body: {'enable': enable, 'pin': pin},
   );
 
   // ── Check-in streak ───────────────────────────────────────────────────────
