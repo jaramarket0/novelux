@@ -19,6 +19,8 @@ import 'package:novelux/screen/author/author_profile_screen.dart';
 import 'package:novelux/screen/review_comment_story/reviews_and_comments_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:novelux/screen/library/controller/library_controller.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  CONTROLLER
@@ -190,6 +192,9 @@ class StoryDetailController extends GetxController {
   // ── Follow / Unfollow ─────────────────────────────────────────────────────
   Future<void> toggleFollow(String authorUsername) async {
     if (isFollowLoading.value) return;
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.follow) != true) return;
+    }
     isFollowLoading.value = true;
     final wasFollowing = isFollowing.value;
 
@@ -219,12 +224,18 @@ class StoryDetailController extends GetxController {
   }
 
   // ── Bookmark ──────────────────────────────────────────────────────────────
+  /// Works signed out — LibraryController keeps a guest's shelf on the device
+  /// and pushes it up when they eventually sign in.
   Future<void> toggleBookmark(String slug) async {
+    final lib =
+        Get.isRegistered<LibraryController>()
+            ? Get.find<LibraryController>()
+            : Get.put(LibraryController());
     if (isBookmarked.value) {
-      await ApiService.removeBookmark(slug);
+      await lib.removeBookmark(slug);
       isBookmarked.value = false;
     } else {
-      await ApiService.bookmarkStory(slug);
+      await lib.addBookmark(slug, story: story.value);
       isBookmarked.value = true;
     }
   }

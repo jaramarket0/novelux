@@ -18,13 +18,11 @@ import 'package:novelux/screen/me/bindings/me_bindings.dart';
 import 'package:novelux/screen/me/me_screen.dart';
 import 'package:novelux/screen/notification_screen/bindings/notifcation_binding.dart';
 import 'package:novelux/screen/notification_screen/notification_screen.dart';
-import 'package:novelux/screen/onboarding/onboarding.dart';
 import 'package:novelux/screen/splash_screen/splash_screen.dart';
 
 
 class AppRoutes {
   static const splashScreen        = '/splash_screen';
-  static const onboardingScreen    = '/onboarding_screen';
   static const loginScreen         = '/login_screen';
   static const registerScreen      = '/register_screen';
   static const mainScreen          = '/main_screen';
@@ -42,7 +40,6 @@ class AppRoutes {
 
   static List<GetPage> pages = [
     GetPage(name: splashScreen,       page: () => const SplashScreen()),
-    GetPage(name: onboardingScreen,   page: () => const Onboarding()),
     GetPage(
       name: loginScreen,
       page: () => const LoginScreen(),

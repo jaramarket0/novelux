@@ -972,6 +972,22 @@ class LoginScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              // Reading and browsing are not account based, so the sign-in
+              // screen must never be a dead end (App Store guideline 5.1.1(v)).
+              const SizedBox(height: 20),
+              Center(
+                child: TextButton(
+                  onPressed: () => Get.offAllNamed('/main_screen'),
+                  child: Text(
+                    'Continue as guest',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 14,
+                      fontFamily: kFontFamily,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 40),
             ],
           ),

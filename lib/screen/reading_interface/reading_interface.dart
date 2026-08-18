@@ -28,6 +28,7 @@ import 'package:novelux/config/ad_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_route_observer.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 
 class _GiftRankingSheet extends StatefulWidget {
   final String storySlug;
@@ -3423,6 +3424,9 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     if (text.isEmpty || isSending.value) {
       return;
     }
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.comment) != true) return;
+    }
 
     isSending.value = true;
     final parentId = replyingTo.value?['id'] as int?;
@@ -3595,6 +3599,10 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
       _playAnimation(gift.emoji);
       AppAlert.info('📺 Free Gift — Watching an ad to send ${gift.label}…');
       return;
+    }
+
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.tip) != true) return;
     }
 
     setState(() => _isSending = true);

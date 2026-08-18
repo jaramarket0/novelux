@@ -6,6 +6,8 @@ import 'package:novelux/config/app_alerts.dart';
 import 'dart:developer' as myLog;
 
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 
 // ── Controller ────────────────────────────────────────────────────────────────
 class ReviewsAndCommentsController extends GetxController {
@@ -720,6 +722,9 @@ class _ReviewWriteScreenState extends State<_ReviewWriteScreen> {
   Future<void> _submit() async {
     if (_submitting) {
       return;
+    }
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.review) != true) return;
     }
     setState(() => _submitting = true);
     final res = await ApiService.submitReview(

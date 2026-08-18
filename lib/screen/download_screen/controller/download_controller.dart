@@ -6,6 +6,7 @@ import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/vip_screen.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:novelux/widgets/download_gate_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as myLog;
@@ -162,8 +163,13 @@ class DownloadController extends GetxController {
     // Exclusive stories: offline download is a VIP perk (backend enforces
     // this too — the flag here just gives a nicer prompt)
     if (isExclusive && !auth.isVip) {
-      _showVipRequiredDialog(title);
-      return;
+      if (!auth.isLoggedIn.value) {
+        if (await promptSignIn(AuthPromptReason.subscribe) != true) return;
+      }
+      if (!auth.isVip) {
+        _showVipRequiredDialog(title);
+        return;
+      }
     }
 
     // VIP: downloads are included with the subscription — no gate
@@ -196,6 +202,11 @@ class DownloadController extends GetxController {
         return;
       }
     } else if (method == 'coins') {
+      // Coins are account money — this is the one download path that needs
+      // an account. The ad path above works fine signed out.
+      if (!auth.isLoggedIn.value) {
+        if (await promptSignIn(AuthPromptReason.coins) != true) return;
+      }
       if (auth.coins < coinCost) {
         AppAlert.warning(
           'Not enough coins — you need $coinCost coins for this download.',

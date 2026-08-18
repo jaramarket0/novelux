@@ -543,6 +543,7 @@ import 'package:novelux/screen/auth/auth_screens.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
 import 'package:novelux/screen/library/controller/library_controller.dart';
 import 'package:novelux/screen/reward_screen/reward_screen.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -674,13 +675,23 @@ class _LibraryScreenState extends State<LibraryScreen>
                 ),
               ),
 
+              // ── Cloud-sync offer ──────────────────────────────────────────
+              // Under the tab labels so it covers both Library and History,
+              // which are the two things signing in actually preserves.
+              Obx(
+                () =>
+                    auth.isLoggedIn.value
+                        ? const SizedBox.shrink()
+                        : _syncBanner(txt),
+              ),
+
               // ── Tab Views ─────────────────────────────────────────────────
               Expanded(
                 child: TabBarView(
                   children: [
                     // ── Library tab ───────────────────────────────────────────
+                    // No sign-in wall: a guest's shelf lives on the device.
                     Obx(() {
-                      if (!auth.isLoggedIn.value) return _notLoggedIn(txt);
                       return Column(
                         children: [
                           // ── Featured banner ─────────────────────────────────
@@ -904,8 +915,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                     }),
 
                     // ── History tab ───────────────────────────────────────────
+                    // No sign-in wall: guest reads are recorded on the device.
                     Obx(() {
-                      if (!auth.isLoggedIn.value) return _notLoggedIn(txt);
                       if (ctrl.isLoadingHistory.value) {
                         return Center(
                           child: Container(
@@ -1044,26 +1055,46 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 
-  Widget _notLoggedIn(Color txt) => Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+  /// Offer, not a wall: the guest's shelf is already on screen behind this,
+  /// so signing in buys them sync and nothing else.
+  Widget _syncBanner(Color txt) => Container(
+    margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+    decoration: BoxDecoration(
+      color: depperBlue.withOpacity(0.10),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
       children: [
-        Icon(Icons.lock_outline, color: Colors.grey[700], size: 60),
-        const SizedBox(height: 16),
-        Text(
-          'Sign in to view your library',
-          style: TextStyle(color: txt.withOpacity(0.5), fontSize: 16),
+        Icon(Icons.cloud_sync_outlined, color: depperBlue, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'Your novels and reading progress will be saved in the cloud '
+            'and never lost',
+            style: TextStyle(color: txt.withOpacity(0.75), fontSize: 12.5),
+          ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(width: 8),
+        // Opens the provider sheet — Google / Apple inline, email hands off
+        // to the full login screen.
         ElevatedButton(
+          onPressed: () => promptSignIn(AuthPromptReason.sync),
           style: ElevatedButton.styleFrom(
             backgroundColor: depperBlue,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            minimumSize: const Size(0, 34),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(17),
             ),
           ),
-          onPressed: () => Get.to(() => const LoginScreen()),
-          child: const Text('Sign In', style: TextStyle(color: Colors.white)),
+          child: const Text(
+            'Sign in',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     ),

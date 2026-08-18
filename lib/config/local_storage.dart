@@ -1993,11 +1993,31 @@ class DataBase extends GetxController {
     return true;
   }
 
+  /// Keys that describe the device, not the account, and so must outlive a
+  /// logout — clearing these on sign-out resets choices the reader made about
+  /// the app itself, not about their account.
+  static const _kSurvivesLogout = ['theme_mode'];
+
   Future logOut() async {
     // _isLoading = true;
 
     final sharedPreferences = await _pref;
-    sharedPreferences.clear();
+
+    final preserved = <String, Object>{};
+    for (final key in _kSurvivesLogout) {
+      final v = sharedPreferences.get(key);
+      if (v != null) preserved[key] = v;
+    }
+
+    await sharedPreferences.clear();
+
+    for (final entry in preserved.entries) {
+      final v = entry.value;
+      if (v is bool) await sharedPreferences.setBool(entry.key, v);
+      if (v is String) await sharedPreferences.setString(entry.key, v);
+      if (v is int) await sharedPreferences.setInt(entry.key, v);
+      if (v is double) await sharedPreferences.setDouble(entry.key, v);
+    }
 
     // _isLoading = false;
     // _reqMessage = 'Log Out Successfull';

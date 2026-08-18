@@ -100,16 +100,20 @@ class LibraryController extends GetxController {
       <Map<String, dynamic>>[].obs;
 
   static const _kHistoryKey = 'nux_reading_history_v1';
+  static const _kBookmarksKey = 'nux_bookmarks_v1';
   static const _kMaxLocal = 100; // keep last 100 entries locally
+
+  bool get _isGuest => !Get.find<AuthController>().isLoggedIn.value;
 
   @override
   void onInit() {
     super.onInit();
     fetchLibraryBanner();
-    if (Get.find<AuthController>().isLoggedIn.value) {
-      fetchBookmarks();
-      fetchHistory();
-    }
+    // Guests get a real library too — bookmarks and history live on the
+    // device until they sign in, at which point mergeLocalIntoAccount()
+    // pushes them up. Nothing here needs an account.
+    fetchBookmarks();
+    fetchHistory();
   }
 
   // ── Banner ─────────────────────────────────────────────────────────────────
@@ -126,12 +130,36 @@ class LibraryController extends GetxController {
   // ── Bookmarks ──────────────────────────────────────────────────────────────
   Future<void> fetchBookmarks() async {
     isLoading.value = true;
+    if (_isGuest) {
+      bookmarks.value = await _loadLocalBookmarks();
+      isLoading.value = false;
+      return;
+    }
     final res = await ApiService.getMyBookmarks();
     isLoading.value = false;
     if (res['success']) {
       final d = res['data'];
       bookmarks.value = d is List ? d : (d['results'] ?? []);
     }
+  }
+
+  // ── Bookmarks — local store for guests ─────────────────────────────────────
+  Future<List<Map<String, dynamic>>> _loadLocalBookmarks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kBookmarksKey);
+    if (raw == null) return [];
+    try {
+      return (jsonDecode(raw) as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _saveLocalBookmarks(List entries) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kBookmarksKey, jsonEncode(entries));
   }
 
   List get filteredBookmarks {
@@ -165,12 +193,36 @@ class LibraryController extends GetxController {
   bool isStorySaved(String slug) =>
       bookmarks.any((b) => b['slug'] == slug);
 
-  Future<void> addBookmark(String slug) async {
+  /// Saves a story to the library. Works signed out — pass [story] so the
+  /// local copy has enough to render a shelf tile without a network call.
+  Future<void> addBookmark(String slug, {Map? story}) async {
+    if (_isGuest) {
+      final entries = await _loadLocalBookmarks();
+      if (entries.any((b) => b['slug'] == slug)) return;
+      entries.insert(0, {
+        'slug': slug,
+        'title': story?['title']?.toString() ?? '',
+        'cover_image': story?['cover_image']?.toString() ?? '',
+        'status': story?['status']?.toString() ?? '',
+        'total_chapters': story?['total_chapters'] ?? 0,
+        'saved_at': DateTime.now().toIso8601String(),
+      });
+      await _saveLocalBookmarks(entries);
+      bookmarks.value = entries;
+      return;
+    }
     await ApiService.bookmarkStory(slug);
     await fetchBookmarks();
   }
 
   Future<void> removeBookmark(String slug) async {
+    if (_isGuest) {
+      final entries = await _loadLocalBookmarks()
+        ..removeWhere((b) => b['slug'] == slug);
+      await _saveLocalBookmarks(entries);
+      bookmarks.value = entries;
+      return;
+    }
     await ApiService.removeBookmark(slug);
     bookmarks.removeWhere((s) => s['slug'] == slug);
   }
@@ -189,6 +241,16 @@ class LibraryController extends GetxController {
     isLoadingHistory.value = true;
 
     List<HistoryEntry> entries = [];
+
+    // Guests read from the device — logView() has been writing there all
+    // along, so history survives without an account.
+    if (_isGuest) {
+      entries = await _loadLocal();
+      entries.sort((a, b) => b.readAt.compareTo(a.readAt));
+      historyGroups.value = _groupByDate(entries);
+      isLoadingHistory.value = false;
+      return;
+    }
 
     // 1. Try server
     final res = await ApiService.getReadingHistory();
@@ -260,6 +322,11 @@ class LibraryController extends GetxController {
     // Refresh groups
     // await fetchHistory();
     myLog.log('logged view locally for ${entry.slug} - ${entry.title}');
+
+    // Guests stop here — the local copy is the record, and it gets pushed up
+    // by mergeLocalIntoAccount() if they sign in later.
+    if (_isGuest) return;
+
     // Log to server (fire and forget)
     var res = await ApiService.logReadingHistory(
       storySlug: entry.slug, //slug.replaceAll('-', ' ').capitalize!,
@@ -270,6 +337,50 @@ class LibraryController extends GetxController {
       return e;
     });
     myLog.log('this is the response body $res');
+  }
+
+  // ── Guest → account handover ───────────────────────────────────────────────
+  /// Pushes everything a guest built up on the device into their new account,
+  /// then reloads from the server. Call once, right after a successful login.
+  ///
+  /// Best effort by design: a story that fails to upload stays in local
+  /// storage, so nothing the reader saved is ever lost to a failed request.
+  Future<void> mergeLocalIntoAccount() async {
+    if (_isGuest) return;
+
+    final localBookmarks = await _loadLocalBookmarks();
+    for (final b in localBookmarks) {
+      final slug = b['slug']?.toString() ?? '';
+      if (slug.isEmpty) continue;
+      try {
+        await ApiService.bookmarkStory(slug);
+      } catch (e) {
+        myLog.log('bookmark merge failed for $slug: $e');
+      }
+    }
+
+    final localHistory = await _loadLocal();
+    for (final e in localHistory) {
+      if (e.slug.isEmpty) continue;
+      try {
+        await ApiService.logReadingHistory(
+          storySlug: e.slug,
+          chapterNumber: e.lastChapterNumber,
+          chapterTitle: e.lastChapterTitle,
+        );
+      } catch (err) {
+        myLog.log('history merge failed for ${e.slug}: $err');
+      }
+    }
+
+    // Server is authoritative from here — clear the guest copies so the two
+    // stores cannot drift apart, then reload.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kBookmarksKey);
+    await prefs.remove(_kHistoryKey);
+
+    await fetchBookmarks();
+    await fetchHistory();
   }
 
   // ── History — clear ────────────────────────────────────────────────────────

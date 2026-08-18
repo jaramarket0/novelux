@@ -296,6 +296,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/local_storage.dart';
+import 'package:novelux/screen/library/controller/library_controller.dart';
 
 class AuthController extends GetxController {
   static AuthController get instance => Get.find();
@@ -387,6 +388,13 @@ class AuthController extends GetxController {
   /// sign-ins — those providers never give us a birthdate), otherwise to
   /// [fallbackRoute]. Call this right after fetchMe() on every login path.
   void routePostAuth({String fallbackRoute = '/main_screen'}) {
+    // Hand the guest's device-local library and history over to the account
+    // they just signed into. No-op once merged (the local keys are cleared).
+    if (Get.isRegistered<LibraryController>()) {
+      Get.find<LibraryController>().mergeLocalIntoAccount().catchError((e) {
+        myLog.log('guest library merge failed: $e');
+      });
+    }
     final dob = currentUser.value?['date_of_birth'];
     if (dob == null || dob.toString().isEmpty) {
       Get.offAllNamed('/dob_gate_screen', arguments: fallbackRoute);
@@ -493,7 +501,9 @@ class AuthController extends GetxController {
     await _db.logOut();
     isLoggedIn.value = false;
     currentUser.value = null;
-    Get.offAllNamed('/onboarding_screen');
+    // Back into the app as a guest, not through the intro slides again —
+    // signing out is not the same as never having used the app.
+    Get.offAllNamed('/main_screen');
   }
 
   Future<void> _saveRefreshToken(String refresh) async {

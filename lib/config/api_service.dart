@@ -3375,9 +3375,23 @@ import 'dart:developer' as myLog;
 // }
 
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:novelux/config/local_storage.dart';
+
+/// Sent as X-Platform on every API call. The backend withholds 18+ and
+/// explicit stories from iOS so the App Store listing can stay below an 18+
+/// age rating — see apps/stories/models.py MATURE_RESTRICTED_PLATFORMS.
+String get clientPlatform {
+  if (kIsWeb) return 'web';
+  if (Platform.isIOS) return 'ios';
+  if (Platform.isAndroid) return 'android';
+  if (Platform.isMacOS) return 'macos';
+  if (Platform.isWindows) return 'windows';
+  if (Platform.isLinux) return 'linux';
+  return 'unknown';
+}
 
 class ApiService {
   static const String baseUrl = 'https://novelux.onrender.com/api';
@@ -3400,6 +3414,7 @@ class ApiService {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-Platform': clientPlatform,
       if (requiresAuth && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
 

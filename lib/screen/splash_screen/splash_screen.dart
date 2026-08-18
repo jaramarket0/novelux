@@ -40,9 +40,12 @@ class _SplashScreenState extends State<SplashScreen>
       auth.isLoggedIn.value = true;
       await auth.fetchMe();
       auth.routePostAuth();
-    } else {
-      Get.offAllNamed('/onboarding_screen');
+      return;
     }
+    // Signed out readers go straight into the app as guests. Browsing,
+    // bookmarks, downloads and history all work without an account, so there
+    // is nothing to introduce or gate before the catalogue.
+    Get.offAllNamed('/main_screen');
   }
 
   @override
