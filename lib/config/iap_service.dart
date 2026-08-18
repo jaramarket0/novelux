@@ -216,6 +216,11 @@ class IAPService extends GetxService {
   final RxBool storeAvailable = false.obs;
   final RxBool isLoadingPrices = false.obs; // background price fetch
   final RxBool isPurchasing = false.obs;
+
+  /// Product id currently going through the store, '' when idle. `isPurchasing`
+  /// alone cannot say *which* item is busy, so every buy button bound to it
+  /// spins at once.
+  final RxString purchasingId = ''.obs;
   final RxBool isVip = false.obs;
   final RxString activeSubId = ''.obs;
   final RxString errorMsg = ''.obs;
@@ -516,6 +521,7 @@ class IAPService extends GetxService {
     rc.StoreProduct? product,
   }) async {
     isPurchasing.value = true;
+    purchasingId.value = productId;
     try {
       // Google Play upgrade/downgrade: pass the currently active sub
       rc.StoreProductChangeInfo? changeInfo;
@@ -580,6 +586,9 @@ class IAPService extends GetxService {
     } catch (e) {
       isPurchasing.value = false;
       return PurchaseResult.error(e.toString());
+    } finally {
+      // Every branch above returns, so clear here rather than in each one.
+      purchasingId.value = '';
     }
   }
 

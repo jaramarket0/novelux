@@ -428,7 +428,11 @@ class CoinStoreScreen extends StatelessWidget {
             child: Obx(() => Column(
               children: svc.coinPacks.map((pack) => Obx(() => _CoinPackCard(
                 pack:         pack,
-                isPurchasing: svc.isPurchasing.value,
+                // Only the pack being bought spins; the others simply go
+                // inert so a second purchase cannot be started mid-flight.
+                isPurchasing: svc.purchasingId.value == pack.id,
+                isLocked:     svc.isPurchasing.value &&
+                              svc.purchasingId.value != pack.id,
                 onBuy: () => _buy(context, pack.id),
               ))).toList(),
             )),
@@ -471,11 +475,13 @@ class CoinStoreScreen extends StatelessWidget {
 class _CoinPackCard extends StatelessWidget {
   final CoinPack     pack;
   final bool         isPurchasing;
+  final bool         isLocked;
   final VoidCallback onBuy;
 
   const _CoinPackCard({
     required this.pack,
     required this.isPurchasing,
+    this.isLocked = false,
     required this.onBuy,
   });
 
@@ -561,7 +567,7 @@ class _CoinPackCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
               ),
-              onPressed: isPurchasing ? null : onBuy,
+              onPressed: (isPurchasing || isLocked) ? null : onBuy,
               child: isPurchasing
                   ? const SizedBox(
                       width: 14, height: 14,
