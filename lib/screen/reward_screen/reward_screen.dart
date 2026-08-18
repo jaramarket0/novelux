@@ -5,6 +5,7 @@ import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/redeem/redeem_screen.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // ── Controller ────────────────────────────────────────────────────────────────
@@ -47,8 +48,13 @@ class RewardsController extends GetxController {
   void onInit() {
     super.onInit();
     _loadLocal();
-    loadCheckinStatus();
-    loadTasks();
+    // Streaks and tasks are server-side and 401 without a token. A guest sees
+    // the same layout with sign-in prompts on every action, so there is
+    // nothing to fetch until they have an account.
+    if (Get.find<AuthController>().isLoggedIn.value) {
+      loadCheckinStatus();
+      loadTasks();
+    }
   }
 
   Future<void> _loadLocal() async {
@@ -335,6 +341,17 @@ class RewardsController extends GetxController {
 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
+/// Coin balances, streaks, milestones and claims all live server-side, so
+/// every action on this screen needs an account. Guests get the sign-in sheet
+/// rather than a silent 401.
+bool _requireAccount() {
+  if (Get.find<AuthController>().isLoggedIn.value) return true;
+  promptSignIn(AuthPromptReason.rewards);
+  return false;
+}
+
+bool get _isGuest => !Get.find<AuthController>().isLoggedIn.value;
+
 class RewardsScreen extends StatelessWidget {
   const RewardsScreen({super.key});
 
@@ -378,7 +395,7 @@ class RewardsScreen extends StatelessWidget {
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 GestureDetector(
-                  onTap: () => Get.to(() => const CoinHistoryScreen()),
+                  onTap: () { if (_requireAccount()) Get.to(() => const CoinHistoryScreen()); },
                   child: Text('My coins ›', style: TextStyle(color: txt,
                       fontSize: 14, fontWeight: FontWeight.w500)),
                 ),
@@ -394,7 +411,7 @@ class RewardsScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                     color: gold, borderRadius: BorderRadius.circular(24)),
                 child: TextButton(
-                  onPressed: () => Get.to(() => const RedeemScreen()),
+                  onPressed: () { if (_requireAccount()) Get.to(() => const RedeemScreen()); },
                   child: const Text('Redeem', style: TextStyle(
                       color: Colors.orange,
                       fontWeight: FontWeight.bold, fontSize: 15)),
@@ -482,8 +499,16 @@ class RewardsScreen extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(24)),
                   ),
-                  onPressed: claimed ? null : ctrl.claimDailyCheckIn,
-                  child: loading
+                  onPressed: _isGuest
+                      ? () => promptSignIn(AuthPromptReason.rewards)
+                      : (claimed ? null : ctrl.claimDailyCheckIn),
+                  child: _isGuest
+                      // Nothing to claim without an account — say what the
+                      // button actually does instead of dangling a reward.
+                      ? const Text('Sign in',
+                          style: TextStyle(color: Colors.black,
+                              fontWeight: FontWeight.bold, fontSize: 15))
+                      : loading
                       ? const SizedBox(width: 20, height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
@@ -527,7 +552,7 @@ class RewardsScreen extends StatelessWidget {
                   fontSize: 15, fontWeight: FontWeight.bold)),
               const Spacer(),
               GestureDetector(
-                onTap: ctrl.loadTasks,
+                onTap: () { if (_requireAccount()) ctrl.loadTasks(); },
                 child: Icon(Icons.refresh, color: sub, size: 20)),
             ]),
             const SizedBox(height: 14),
@@ -578,7 +603,9 @@ class RewardsScreen extends StatelessWidget {
               Obx(() {
                 final canClaim = ctrl.canClaimMilestone;
                 return GestureDetector(
-                  onTap: canClaim ? ctrl.claimReadingMilestones : null,
+                  onTap: _isGuest
+                      ? () => promptSignIn(AuthPromptReason.rewards)
+                      : (canClaim ? ctrl.claimReadingMilestones : null),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                     decoration: BoxDecoration(
@@ -672,7 +699,7 @@ class RewardsScreen extends StatelessWidget {
               Obx(() {
                 final done = ctrl.adsWatchedToday.value >= ctrl.maxAdsPerDay;
                 return GestureDetector(
-                  onTap: ctrl.watchAd,
+                  onTap: () { if (_requireAccount()) ctrl.watchAd(); },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 8),
@@ -756,6 +783,7 @@ class RewardsScreen extends StatelessWidget {
       const SizedBox(width: 12),
       GestureDetector(
         onTap: done ? null : () {
+          if (!_requireAccount()) return;
           if (isResponse) {
             _showResponseDialog(task, onComplete);
           } else {
@@ -837,7 +865,9 @@ class RewardsScreen extends StatelessWidget {
       ]),
       const Spacer(),
       GestureDetector(
-        onTap: claimed ? null : onClaim,
+        onTap: _isGuest
+            ? () => promptSignIn(AuthPromptReason.rewards)
+            : (claimed ? null : onClaim),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(

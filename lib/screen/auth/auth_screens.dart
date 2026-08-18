@@ -693,6 +693,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:novelux/widgets/google_logo.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -941,7 +942,7 @@ class LoginScreen extends StatelessWidget {
                         Container(
                           width: 20,
                           height: 20,
-                          child: CustomPaint(painter: _GoogleLogoPainter()),
+                          child: const GoogleLogo(size: 20),
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -1308,7 +1309,7 @@ class RegisterScreen extends StatelessWidget {
                         Container(
                           width: 20,
                           height: 20,
-                          child: CustomPaint(painter: _GoogleLogoPainter()),
+                          child: const GoogleLogo(size: 20),
                         ),
                         const SizedBox(width: 12),
                         const Text(
@@ -1349,72 +1350,4 @@ class RegisterScreen extends StatelessWidget {
 }
 
 // ── Google G logo painter ─────────────────────────────────────────────────────
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final r = size.width / 2;
 
-    // Blue arc (top-right)
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      -1.3,
-      1.7,
-      false,
-      Paint()
-        ..color = const Color(0xFF4285F4)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.18
-        ..strokeCap = StrokeCap.butt,
-    );
-    // Red arc
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      0.4,
-      1.35,
-      false,
-      Paint()
-        ..color = const Color(0xFFEA4335)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.18
-        ..strokeCap = StrokeCap.butt,
-    );
-    // Yellow arc
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      1.75,
-      1.35,
-      false,
-      Paint()
-        ..color = const Color(0xFFFBBC05)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.18
-        ..strokeCap = StrokeCap.butt,
-    );
-    // Green arc
-    canvas.drawArc(
-      Rect.fromCircle(center: Offset(cx, cy), radius: r),
-      3.1,
-      0.85,
-      false,
-      Paint()
-        ..color = const Color(0xFF34A853)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.18
-        ..strokeCap = StrokeCap.butt,
-    );
-    // Horizontal bar of the G
-    canvas.drawLine(
-      Offset(cx, cy),
-      Offset(cx + r * 0.85, cy),
-      Paint()
-        ..color = const Color(0xFF4285F4)
-        ..strokeWidth = size.width * 0.17
-        ..strokeCap = StrokeCap.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}

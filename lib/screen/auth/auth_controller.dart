@@ -387,7 +387,20 @@ class AuthController extends GetxController {
   /// yet (legacy accounts from before age assurance shipped, or Google/Apple
   /// sign-ins — those providers never give us a birthdate), otherwise to
   /// [fallbackRoute]. Call this right after fetchMe() on every login path.
+  /// Empties every auth form field. These controllers live on the singleton
+  /// AuthController, so without this the next visit to the login or register
+  /// screen still shows the last person's details — including their password.
+  void clearAuthForm() {
+    emailCtrl.clear();
+    passwordCtrl.clear();
+    usernameCtrl.clear();
+    password2Ctrl.clear();
+    dateOfBirth.value = null;
+    errorMessage.value = '';
+  }
+
   void routePostAuth({String fallbackRoute = '/main_screen'}) {
+    clearAuthForm();
     // Hand the guest's device-local library and history over to the account
     // they just signed into. No-op once merged (the local keys are cleared).
     if (Get.isRegistered<LibraryController>()) {
@@ -451,9 +464,13 @@ class AuthController extends GetxController {
         isLoggedIn.value = true;
         await fetchMe();
         // Go to preferences screen to pick categories
+        clearAuthForm();
         Get.offAllNamed('/preferences_screen');
       } else {
-        // Registration succeeded but no token — redirect to login
+        // Registration succeeded but no token — redirect to login.
+        // Clear first: this lands on the login form, and leaving the just-used
+        // credentials sitting in it is what the reader sees as a bug.
+        clearAuthForm();
         Get.offNamed('/login_screen');
         AppAlert.success('Account created! Please log in.');
       }
@@ -501,6 +518,7 @@ class AuthController extends GetxController {
     await _db.logOut();
     isLoggedIn.value = false;
     currentUser.value = null;
+    clearAuthForm();
     // Back into the app as a guest, not through the intro slides again —
     // signing out is not the same as never having used the app.
     Get.offAllNamed('/main_screen');

@@ -67,6 +67,11 @@ class VipController extends GetxController {
   /// paying twice.
   Future<void> restore() async {
     if (isRestoring.value) return;
+    // Restoring re-attaches an entitlement to a NoveluX account, so there has
+    // to be one to attach it to.
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.subscribe) != true) return;
+    }
     isRestoring.value = true;
     final result = await IAPService.to.restorePurchases();
     isRestoring.value = false;

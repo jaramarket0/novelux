@@ -336,6 +336,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/vip_screen.dart';
+import 'package:novelux/widgets/auth_prompt_sheet.dart';
 
 class CoinStoreScreen extends StatelessWidget {
   const CoinStoreScreen({super.key});
@@ -445,6 +446,12 @@ class CoinStoreScreen extends StatelessWidget {
   }
 
   Future<void> _buy(BuildContext ctx, String productId) async {
+    // Coins are credited to a server-side balance, so there is nowhere to put
+    // them without an account. Offer sign-in, then continue the purchase.
+    if (!Get.find<AuthController>().isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.coins) != true) return;
+      if (!ctx.mounted) return;
+    }
     final svc    = IAPService.to;
     final result = await svc.buyCoins(productId);
 

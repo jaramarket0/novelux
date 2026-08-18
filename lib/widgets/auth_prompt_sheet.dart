@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:novelux/widgets/google_logo.dart';
 
 /// Bottom sheet shown at the moment a guest touches something that genuinely
 /// needs an account — never on entry to a screen.
@@ -18,6 +19,7 @@ enum AuthPromptReason {
   tip,
   subscribe,
   coins,
+  rewards,
   follow,
   write,
   notifications,
@@ -41,6 +43,9 @@ extension _ReasonCopy on AuthPromptReason {
       case AuthPromptReason.coins:
         return 'Sign in to buy and spend coins. Your balance is tied to your '
             'account.';
+      case AuthPromptReason.rewards:
+        return 'Sign in to earn and keep coins. Daily check-ins, reading '
+            'rewards and your balance all live with your account.';
       case AuthPromptReason.follow:
         return 'Sign in to follow authors and hear about their new releases.';
       case AuthPromptReason.write:
@@ -115,7 +120,7 @@ class _AuthPromptSheet extends StatelessWidget {
               fill: fill,
               border: border,
               textColor: title,
-              icon: const _GoogleMark(),
+              icon: const GoogleLogo(size: 20),
               onTap: () async {
                 Get.back();
                 await auth.loginWithGoogle();
@@ -213,16 +218,3 @@ class _ProviderButton extends StatelessWidget {
   }
 }
 
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
-
-  @override
-  Widget build(BuildContext context) => const Text(
-    'G',
-    style: TextStyle(
-      color: Color(0xFF4285F4),
-      fontSize: 19,
-      fontWeight: FontWeight.bold,
-    ),
-  );
-}
