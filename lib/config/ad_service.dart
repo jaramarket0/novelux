@@ -10,24 +10,24 @@ import 'package:novelux/screen/auth/auth_controller.dart';
 // ── Ad unit IDs ───────────────────────────────────────────────────────────────
 class _AdIds {
   static String get banner => Platform.isAndroid
-      ? 'ca-app-pub-7663143456164378/3666172984'
-      : 'ca-app-pub-7663143456164378/5999144126';
+      ? 'ca-app-pub-8703660804731523/6317420894'
+      : 'ca-app-pub-8703660804731523/4178342712';
 
   static String get interstitial => Platform.isAndroid
-      ? 'ca-app-pub-7663143456164378/9134122082'
-      : 'ca-app-pub-7663143456164378/4741902777';
+      ? 'ca-app-pub-8703660804731523/8736690355'
+      : 'ca-app-pub-8703660804731523/5742705826';
 
   static String get rewarded => Platform.isAndroid
-      ? 'ca-app-pub-7663143456164378/6507958741'
-      : 'ca-app-pub-7663143456164378/2025788258';
+      ? 'ca-app-pub-8703660804731523/8928211716'
+      : 'ca-app-pub-8703660804731523/1364477114';
 
   static String get rewardedInterstitial => Platform.isAndroid
-      ? 'ca-app-pub-7663143456164378/5965033262'
-      : 'ca-app-pub-7663143456164378/1383890501';
+      ? 'ca-app-pub-8703660804731523/7998273427'
+      : 'ca-app-pub-8703660804731523/2677558785';
 
   static String get native => Platform.isAndroid
-      ? 'ca-app-pub-7663143456164378/7559637803'
-      : 'ca-app-pub-7663143456164378/9712706586';
+      ? 'ca-app-pub-8703660804731523/5930408082'
+      : 'ca-app-pub-8703660804731523/9490379140';
 }
 
 // ── VIP guard ─────────────────────────────────────────────────────────────────
