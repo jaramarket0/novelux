@@ -3,6 +3,8 @@
 <plist version="1.0">
 	<dict>
 		<!-- AdMob App ID -->
+		<key>NSUserTrackingUsageDescription</key>
+		<string>NoveluX uses this to show you more relevant ads. You can still use the app and read every story if you say no.</string>
 		<key>GADApplicationIdentifier</key>
 		<string>ca-app-pub-8703660804731523~9032203826</string>
 		<key>SKAdNetworkItems</key>

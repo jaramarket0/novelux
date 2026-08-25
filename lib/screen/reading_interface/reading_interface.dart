@@ -1336,7 +1336,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   }
 
   void _showLockedChapterModal() {
-    _showPurchaseSheet(
+    _showChapterLockedFlow(
       cost: ctrl.lockedChapterCoinCost.value,
       isDismissible: true,
       onCoinUnlock: () async {
@@ -1351,7 +1351,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   }
 
   void _showCurrentChapterLockedModal() {
-    _showPurchaseSheet(
+    _showChapterLockedFlow(
       cost: ctrl.lockedChapterCoinCost.value,
       isDismissible: false,
       onCoinUnlock: () async {
@@ -1361,6 +1361,212 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
           ctrl.scrollController.jumpTo(0);
         }
         return ok;
+      },
+    );
+  }
+
+  /// Coins credited for one rewarded ad watched from a locked-chapter sheet.
+  /// Matches the grant the rewarded interstitial makes in [AdService].
+  static const int _adRewardCoins = 2;
+
+  /// Single entry point for every "this chapter is locked" prompt.
+  ///
+  /// A reader who can already pay gets the short unlock sheet; everyone else
+  /// gets the coin packs / VIP / watch-ad sheet. A zero cost means the price
+  /// hasn't loaded yet, so it takes the purchase path rather than offering a
+  /// free unlock.
+  void _showChapterLockedFlow({
+    required int cost,
+    required bool isDismissible,
+    required Future<bool> Function() onCoinUnlock,
+  }) {
+    if (cost > 0 && Get.find<AuthController>().coins >= cost) {
+      _showUnlockSheet(
+        cost: cost,
+        isDismissible: isDismissible,
+        onCoinUnlock: onCoinUnlock,
+      );
+    } else {
+      _showPurchaseSheet(
+        cost: cost,
+        isDismissible: isDismissible,
+        onCoinUnlock: onCoinUnlock,
+      );
+    }
+  }
+
+  /// Watch a rewarded ad to top the balance up. Used by the Watch Ad buttons
+  /// on both locked-chapter sheets; the balance rows are inside `Obx`, so the
+  /// refreshed total lands without rebuilding the sheet.
+  Future<void> _watchAdForCoins() async {
+    final ads = AdService.instance;
+    if (!ads.isRewardedReady) {
+      AppAlert.info('Ad not ready — Please try again in a moment.');
+      return;
+    }
+
+    bool earned = false;
+    final shown = await ads.showRewarded(onRewarded: (_) => earned = true);
+    if (!shown || !earned) {
+      AppAlert.info('Watch the full ad to earn coins.');
+      return;
+    }
+
+    final res = await ApiService.claimDailyReward(
+      _adRewardCoins,
+      claimType: 'ad',
+    );
+    if (res['success'] == true) {
+      await Get.find<AuthController>().refreshCoins();
+      AppAlert.success('+$_adRewardCoins Coins!');
+    } else {
+      AppAlert.error(res['error'] ?? 'Could not credit your reward.');
+    }
+  }
+
+  /// Short sheet for a reader who can already afford the chapter — the
+  /// counterpart of the unlock sheet on the story detail screen.
+  void _showUnlockSheet({
+    required int cost,
+    required bool isDismissible,
+    required Future<bool> Function() onCoinUnlock,
+  }) {
+    final auth = Get.find<AuthController>();
+
+    showModalBottomSheet(
+      context: context,
+      isDismissible: isDismissible,
+      enableDrag: isDismissible,
+      backgroundColor: const Color(0xFF1e1e22),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        var unlocking = false;
+        return StatefulBuilder(
+          builder:
+              (ctx, setS) => Padding(
+                padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.lock_outline,
+                      color: Colors.orange,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Locked Chapter',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Unlock with $cost coins to read this chapter',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    Obx(
+                      () => Text(
+                        'Your balance: ${auth.coins} coins',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: depperBlue,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed:
+                            unlocking
+                                ? null
+                                : () async {
+                                  setS(() => unlocking = true);
+                                  // On success onCoinUnlock closes the sheet.
+                                  final ok = await onCoinUnlock();
+                                  if (!ok && ctx.mounted) {
+                                    setS(() => unlocking = false);
+                                    AppAlert.error(
+                                      'Could not unlock — please try again.',
+                                    );
+                                  }
+                                },
+                        child:
+                            unlocking
+                                ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                : Text(
+                                  'Unlock — $cost coins',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed:
+                          unlocking
+                              ? null
+                              : () {
+                                Navigator.pop(ctx);
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
+                                  if (!mounted) return;
+                                  _showPurchaseSheet(
+                                    cost: cost,
+                                    isDismissible: isDismissible,
+                                    onCoinUnlock: onCoinUnlock,
+                                  );
+                                });
+                              },
+                      child: const Text(
+                        'Coins, VIP & free options',
+                        style: TextStyle(color: depperBlue, fontSize: 13),
+                      ),
+                    ),
+                    if (isDismissible)
+                      TextButton(
+                        onPressed:
+                            unlocking ? null : () => Navigator.pop(ctx),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+        );
       },
     );
   }
@@ -1444,9 +1650,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                         ),
                         // Watch Ad button
                         GestureDetector(
-                          onTap: () {
-                            AppAlert.info('Ads coming soon — Rewarded ads will be available shortly.');
-                          },
+                          onTap: _watchAdForCoins,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -1480,6 +1684,48 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                       ],
                     ),
                   ),
+
+                  // ── Unlock, once the balance covers the price ────────────
+                  // Reachable from here as well as the unlock sheet: a
+                  // rewarded ad or a coin pack can push the balance over the
+                  // price while this sheet is open.
+                  Obx(() {
+                    if (cost <= 0 || auth.coins < cost) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: depperBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(23),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: () async {
+                            final ok = await onCoinUnlock();
+                            if (!ok) {
+                              AppAlert.error(
+                                'Could not unlock — please try again.',
+                              );
+                            }
+                          },
+                          child: Text(
+                            'Unlock now — $cost Coins',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
 
                   const SizedBox(height: 20),
 
@@ -1847,14 +2093,28 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                   if (ctrl.showBottomBar) _buildBottomBar(),
                   if (!ctrl.showSettings && !ctrl.showContents)
                     _buildRightFabs(),
-                  // Banner ad — hidden while controls / settings are open
-                  if (!ctrl.showBottomBar && !ctrl.showSettings && !ctrl.showContents)
-                    const Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      child: Center(child: AdBannerWidget()),
+                  // Banner ad — hidden while controls / settings are open.
+                  // Stays mounted and is hidden with Offstage rather than
+                  // dropped from the tree: an `if` here tore the widget down
+                  // on every menu toggle, and its initState requests a fresh
+                  // ad, so toggling the menu five times fired five banner
+                  // requests. Keyed on the chapter so it still refreshes once
+                  // per chapter, which is the cadence we actually want.
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Offstage(
+                        offstage: ctrl.showBottomBar ||
+                            ctrl.showSettings ||
+                            ctrl.showContents,
+                        child: AdBannerWidget(
+                          key: ValueKey(ctrl.currentChapterNumber.value),
+                        ),
+                      ),
                     ),
+                  ),
                   if (ctrl.showSettings)
                     Align(
                       alignment: Alignment.bottomCenter,
@@ -3594,15 +3854,50 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
   Future<void> _sendGift(_Gift gift) async {
     if (_isSending) return;
 
-    // Free gift → watch ad (AdMob stub)
-    if (gift.coins == 0) {
-      _playAnimation(gift.emoji);
-      AppAlert.info('📺 Free Gift — Watching an ad to send ${gift.label}…');
-      return;
-    }
-
     if (!Get.find<AuthController>().isLoggedIn.value) {
       if (await promptSignIn(AuthPromptReason.tip) != true) return;
+    }
+
+    // Free gift → the ad *is* the payment, so it must be watched in full
+    // before the flower is recorded.
+    if (gift.coins == 0) {
+      final ads = AdService.instance;
+      if (!ads.isRewardedReady) {
+        AppAlert.info('Ad not ready — Please try again in a moment.');
+        return;
+      }
+
+      setState(() => _isSending = true);
+      bool earned = false;
+      final shown = await ads.showRewarded(onRewarded: (_) => earned = true);
+      if (!mounted) return;
+
+      if (!shown || !earned) {
+        setState(() {
+          _isSending = false;
+          _selectedGiftIndex = null;
+        });
+        AppAlert.info('Watch the full ad to send a ${gift.label}.');
+        return;
+      }
+
+      // A 0-coin tip is how a flower is stored — the ranking sheet splits
+      // Gratuity from Flowers on exactly that.
+      final res = await ApiService.sendTip(
+        widget.storySlug!,
+        0,
+        message: 'Sent a ${gift.label} gift!',
+      );
+      if (!mounted) return;
+      setState(() => _isSending = false);
+
+      if (res['success']) {
+        _playAnimation(gift.emoji);
+      } else {
+        setState(() => _selectedGiftIndex = null);
+        AppAlert.error(res['error'] ?? 'Could not send ${gift.label}');
+      }
+      return;
     }
 
     setState(() => _isSending = true);

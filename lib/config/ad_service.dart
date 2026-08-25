@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
@@ -30,6 +32,19 @@ class _AdIds {
       : 'ca-app-pub-8703660804731523/9490379140';
 }
 
+// ── Load failure logging ──────────────────────────────────────────────────────
+/// AdMob's own error codes, surfaced because a silently-swallowed
+/// `onAdFailedToLoad` makes "no ads are showing" impossible to diagnose.
+///   0 internal · 1 invalid request · 2 network · 3 NO FILL · 8 missing app id
+/// Code 3 on a brand-new unit usually means the AdMob app is not yet linked to
+/// its store listing, not that the integration is broken.
+void _logAdFailure(String slot, LoadAdError error) {
+  debugPrint(
+    '[Ads] $slot failed to load — code ${error.code} (${error.domain}): '
+    '${error.message}',
+  );
+}
+
 // ── VIP guard ─────────────────────────────────────────────────────────────────
 bool get _isVip {
   try {
@@ -55,7 +70,40 @@ class AdService {
   // priority over the plain interstitial on chapters where both would fire).
   static const int _rewardedInterstitialFrequency = 10;
 
+  /// Asks for tracking permission on iOS. Must run *before* MobileAds
+  /// initialises: without it every iOS request goes out with no IDFA and is
+  /// treated as non-personalised, which is a large part of why iOS fill is
+  /// far worse than Android. Required by App Store guideline 5.1.2 whenever
+  /// an app requests tracking data.
+  ///
+  /// Declining is fine — ads still serve, just non-personalised — so nothing
+  /// in the app is gated on the answer.
+  Future<void> _requestTrackingAuthorization() async {
+    if (kIsWeb || !Platform.isIOS) return;
+    try {
+      final status =
+          await AppTrackingTransparency.trackingAuthorizationStatus;
+      // Only 'notDetermined' may prompt; asking again once answered is a no-op
+      // and iOS will not re-show the dialog.
+      if (status == TrackingStatus.notDetermined) {
+        // A short delay lets the first frame settle — requesting while the app
+        // is still launching silently returns denied on some iOS versions.
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        final result =
+            await AppTrackingTransparency.requestTrackingAuthorization();
+        debugPrint('[Ads] ATT result: $result');
+      } else {
+        debugPrint('[Ads] ATT already decided: $status');
+      }
+    } catch (e) {
+      // Never let a tracking prompt failure stop ads initialising.
+      debugPrint('[Ads] ATT request failed: $e');
+    }
+  }
+
   Future<void> initialize() async {
+    await _requestTrackingAuthorization();
+
     // Register your physical test device so ads don't count as real impressions.
     // The device ID is printed in logcat: "Use RequestConfiguration.Builder().setTestDeviceIds(...)"
     await MobileAds.instance.updateRequestConfiguration(
@@ -82,7 +130,10 @@ class AdService {
       request: const AdRequest(),
       adLoadCallback: InterstitialAdLoadCallback(
         onAdLoaded: (ad) => _interstitial = ad,
-        onAdFailedToLoad: (_) => _interstitial = null,
+        onAdFailedToLoad: (e) {
+          _logAdFailure('interstitial', e);
+          _interstitial = null;
+        },
       ),
     );
   }
@@ -123,7 +174,10 @@ class AdService {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) => _rewarded = ad,
-        onAdFailedToLoad: (_) => _rewarded = null,
+        onAdFailedToLoad: (e) {
+          _logAdFailure('rewarded', e);
+          _rewarded = null;
+        },
       ),
     );
   }
@@ -171,7 +225,10 @@ class AdService {
       request: const AdRequest(),
       rewardedInterstitialAdLoadCallback: RewardedInterstitialAdLoadCallback(
         onAdLoaded: (ad) => _rewardedInterstitial = ad,
-        onAdFailedToLoad: (_) => _rewardedInterstitial = null,
+        onAdFailedToLoad: (e) {
+          _logAdFailure('rewardedInterstitial', e);
+          _rewardedInterstitial = null;
+        },
       ),
     );
   }
@@ -228,7 +285,8 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
         onAdLoaded: (_) {
           if (mounted) setState(() => _loaded = true);
         },
-        onAdFailedToLoad: (ad, _) {
+        onAdFailedToLoad: (ad, e) {
+          _logAdFailure('banner', e);
           ad.dispose();
           if (mounted) setState(() => _ad = null);
         },
@@ -284,7 +342,8 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
         onAdLoaded: (_) {
           if (mounted) setState(() => _loaded = true);
         },
-        onAdFailedToLoad: (ad, _) {
+        onAdFailedToLoad: (ad, e) {
+          _logAdFailure('native', e);
           ad.dispose();
           if (mounted) setState(() => _ad = null);
         },
