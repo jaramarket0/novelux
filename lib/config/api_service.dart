@@ -3948,6 +3948,19 @@ class ApiService {
     int chapterNumber,
   ) => _request('POST', '/chapters/$storySlug/chapters/$chapterNumber/unlock/');
 
+  /// Trades a watched rewarded ad for a single read of a locked chapter.
+  ///
+  /// Returns the chapter content in the response; nothing is unlocked and no
+  /// coins move, so the chapter is locked again on the next fetch. Use
+  /// [unlockChapter] for permanent access.
+  static Future<Map<String, dynamic>> adAccessChapter(
+    String storySlug,
+    int chapterNumber,
+  ) => _request(
+    'POST',
+    '/chapters/$storySlug/chapters/$chapterNumber/ad-access/',
+  );
+
   static Future<Map<String, dynamic>> updateChapter(
     String storySlug,
     int chapterNumber,

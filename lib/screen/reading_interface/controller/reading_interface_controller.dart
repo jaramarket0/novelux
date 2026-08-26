@@ -355,6 +355,32 @@ class ReadingInterfaceController extends GetxController {
     return false;
   }
 
+  /// Show [chapterNum] for one read, paid for with a watched rewarded ad.
+  ///
+  /// The counterpart of [unlockCurrentChapter] / [unlockAndLoadNextChapter],
+  /// with one deliberate difference: it never writes `is_locked = false` into
+  /// [chapterList] and never creates an unlock server-side. The content lives
+  /// in [chapterContent] for this visit only — leaving and coming back refetches
+  /// the chapter, finds it locked, and prompts again. That is the whole point
+  /// of the ad path, so resist "fixing" it by caching the result.
+  Future<bool> adAccessChapter(int chapterNum) async {
+    if (currentStorySlug == null) return false;
+    isUnlocking.value = true;
+    final res = await ApiService.adAccessChapter(currentStorySlug!, chapterNum);
+    isUnlocking.value = false;
+    if (!res['success']) return false;
+
+    final data = res['data'];
+    currentChapterNumber.value = chapterNum;
+    chapterContent.value = data['content'] ?? '';
+    _currentChapter.value = data['title'] ?? 'Chapter $chapterNum';
+    isCurrentChapterLocked.value = false;
+    isNextChapterLocked.value = false;
+    if (scrollController.hasClients) scrollController.jumpTo(0);
+    _readingProgress.value = 0.0;
+    return true;
+  }
+
   Future<void> goPrevChapter() async {
     if (!hasPrevChapter || currentStorySlug == null) {
       return;

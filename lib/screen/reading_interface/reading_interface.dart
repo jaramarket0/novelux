@@ -1338,6 +1338,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   void _showLockedChapterModal() {
     _showChapterLockedFlow(
       cost: ctrl.lockedChapterCoinCost.value,
+      chapterNumber: ctrl.currentChapterNumber.value + 1,
       isDismissible: true,
       onCoinUnlock: () async {
         final ok = await ctrl.unlockAndLoadNextChapter();
@@ -1353,6 +1354,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   void _showCurrentChapterLockedModal() {
     _showChapterLockedFlow(
       cost: ctrl.lockedChapterCoinCost.value,
+      chapterNumber: ctrl.currentChapterNumber.value,
       isDismissible: false,
       onCoinUnlock: () async {
         final ok = await ctrl.unlockCurrentChapter();
@@ -1365,10 +1367,6 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     );
   }
 
-  /// Coins credited for one rewarded ad watched from a locked-chapter sheet.
-  /// Matches the grant the rewarded interstitial makes in [AdService].
-  static const int _adRewardCoins = 2;
-
   /// Single entry point for every "this chapter is locked" prompt.
   ///
   /// A reader who can already pay gets the short unlock sheet; everyone else
@@ -1379,26 +1377,30 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     required int cost,
     required bool isDismissible,
     required Future<bool> Function() onCoinUnlock,
+    required int chapterNumber,
   }) {
     if (cost > 0 && Get.find<AuthController>().coins >= cost) {
       _showUnlockSheet(
         cost: cost,
         isDismissible: isDismissible,
         onCoinUnlock: onCoinUnlock,
+        chapterNumber: chapterNumber,
       );
     } else {
       _showPurchaseSheet(
         cost: cost,
         isDismissible: isDismissible,
         onCoinUnlock: onCoinUnlock,
+        chapterNumber: chapterNumber,
       );
     }
   }
 
-  /// Watch a rewarded ad to top the balance up. Used by the Watch Ad buttons
-  /// on both locked-chapter sheets; the balance rows are inside `Obx`, so the
-  /// refreshed total lands without rebuilding the sheet.
-  Future<void> _watchAdForCoins() async {
+  /// Watch a rewarded ad to read [chapterNumber] once.
+  ///
+  /// This buys a single read, not the chapter: nothing is unlocked, so the
+  /// next visit prompts again. Closes the sheet on success.
+  Future<void> _watchAdToRead(int chapterNumber) async {
     final ads = AdService.instance;
     if (!ads.isRewardedReady) {
       AppAlert.info('Ad not ready — Please try again in a moment.');
@@ -1408,19 +1410,17 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     bool earned = false;
     final shown = await ads.showRewarded(onRewarded: (_) => earned = true);
     if (!shown || !earned) {
-      AppAlert.info('Watch the full ad to earn coins.');
+      AppAlert.info('Watch the full ad to read this chapter.');
       return;
     }
 
-    final res = await ApiService.claimDailyReward(
-      _adRewardCoins,
-      claimType: 'ad',
-    );
-    if (res['success'] == true) {
-      await Get.find<AuthController>().refreshCoins();
-      AppAlert.success('+$_adRewardCoins Coins!');
+    final ok = await ctrl.adAccessChapter(chapterNumber);
+    if (!mounted) return;
+    if (ok) {
+      Get.back();
+      AppAlert.info('Enjoy the chapter — unlock it with coins to keep it.');
     } else {
-      AppAlert.error(res['error'] ?? 'Could not credit your reward.');
+      AppAlert.error('Could not open the chapter — please try again.');
     }
   }
 
@@ -1430,6 +1430,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     required int cost,
     required bool isDismissible,
     required Future<bool> Function() onCoinUnlock,
+    required int chapterNumber,
   }) {
     final auth = Get.find<AuthController>();
 
@@ -1531,6 +1532,34 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                                 ),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    // Affording the chapter doesn't mean wanting to buy it —
+                    // the one-off ad read stays available here too.
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.grey[700]!),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed:
+                            unlocking
+                                ? null
+                                : () => _watchAdToRead(chapterNumber),
+                        icon: const Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        label: const Text(
+                          'Watch ad to read once',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     TextButton(
                       onPressed:
@@ -1546,11 +1575,12 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                                     cost: cost,
                                     isDismissible: isDismissible,
                                     onCoinUnlock: onCoinUnlock,
+                                    chapterNumber: chapterNumber,
                                   );
                                 });
                               },
                       child: const Text(
-                        'Coins, VIP & free options',
+                        'Coins & VIP options',
                         style: TextStyle(color: depperBlue, fontSize: 13),
                       ),
                     ),
@@ -1575,6 +1605,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     required int cost,
     required bool isDismissible,
     required Future<bool> Function() onCoinUnlock,
+    required int chapterNumber,
   }) {
     final svc = IAPService.to;
     final auth = Get.find<AuthController>();
@@ -1648,9 +1679,9 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                             ],
                           ),
                         ),
-                        // Watch Ad button
+                        // Watch Ad button — buys one read, not the chapter
                         GestureDetector(
-                          onTap: _watchAdForCoins,
+                          onTap: () => _watchAdToRead(chapterNumber),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -1670,7 +1701,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                                 ),
                                 SizedBox(width: 5),
                                 Text(
-                                  'Watch Ad',
+                                  'Read once (Ad)',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
