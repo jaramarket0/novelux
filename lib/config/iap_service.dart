@@ -57,7 +57,7 @@ import 'dart:developer' as myLog;
 //  RevenueCat → Project settings → API keys
 // ══════════════════════════════════════════════════════════════════════════════
 
-const _kRevenueCatGoogleApiKey = 'goog_dnINXRYLciWwzRXMHFlXoMRfaKT';
+const _kRevenueCatGoogleApiKey = 'goog_EimoAplkqxHfDNEYgbUKDzVvVJQ'; //'goog_dnINXRYLciWwzRXMHFlXoMRfaKT';
 const _kRevenueCatAppleApiKey = 'appl_yTpmYATACUHKTgfIHqBFnionjnT';
 
 /// Entitlement identifier configured in the RevenueCat dashboard.
