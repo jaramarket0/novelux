@@ -10,6 +10,7 @@ import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:novelux/widgets/download_gate_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as myLog;
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ── Models ────────────────────────────────────────────────────────────────────
 class DownloadedChapter {
@@ -248,7 +249,7 @@ class DownloadController extends GetxController {
               ),
               const SizedBox(height: 8),
               Text(
-                '"$title" is a NoveluX exclusive — offline download is '
+                '"$title" is a ${AppConstants.appName} exclusive — offline download is '
                 'included with a VIP subscription.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white70, fontSize: 13),

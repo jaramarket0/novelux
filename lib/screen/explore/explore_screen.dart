@@ -18,6 +18,7 @@ import 'package:novelux/screen/view_all_screen/view_all_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class FeaturedCarouselSection extends StatefulWidget {
   const FeaturedCarouselSection({
@@ -569,7 +570,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                   'assets/images/novelux_placeholder_transcpr.jpg',
                             ),
                             Text(
-                              'NoveluX',
+                              AppConstants.appName,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,

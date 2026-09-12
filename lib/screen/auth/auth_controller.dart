@@ -297,6 +297,7 @@ import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/screen/library/controller/library_controller.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class AuthController extends GetxController {
   static AuthController get instance => Get.find();
@@ -439,7 +440,7 @@ class AuthController extends GetxController {
         (today.month == dob.month && today.day >= dob.day);
     final age = today.year - dob.year - (hadBirthdayThisYear ? 0 : 1);
     if (age < 13) {
-      errorMessage.value = 'You must be at least 13 years old to create a NoveluX account';
+      errorMessage.value = 'You must be at least 13 years old to create a ${AppConstants.appName} account';
       return;
     }
     isLoading.value = true;

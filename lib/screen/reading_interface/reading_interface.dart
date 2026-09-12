@@ -29,6 +29,7 @@ import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_route_observer.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class _GiftRankingSheet extends StatefulWidget {
   final String storySlug;
@@ -806,8 +807,8 @@ class _AboutRankingSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'The NoveluX Gratuity is ranked based on the cumulative rewards from all readers for this book.',
+                  Text(
+                    'The ${AppConstants.appName} Gratuity is ranked based on the cumulative rewards from all readers for this book.',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 15,

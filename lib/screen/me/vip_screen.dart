@@ -11,6 +11,7 @@ import 'package:novelux/screen/me/subscription_celebration.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 /// Storefront that actually handles the subscription, so the renewal notice
 /// never names the wrong platform. App Review rejects iOS builds that
@@ -143,8 +144,8 @@ class VipScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          const Text(
-                            'NoveluX VIP',
+                          Text(
+                            '${AppConstants.appName} VIP',
                             style: TextStyle(
                               color: _cream,
                               fontSize: 22,
@@ -289,7 +290,7 @@ class VipScreen extends StatelessWidget {
                       _feature(
                         Icons.headphones_outlined,
                         'Audiobooks',
-                        'Stream all the novels you want to hear, Ad-Free on the NoveluX app',
+                        'Stream all the novels you want to hear, Ad-Free on the ${AppConstants.appName} app',
                       ),
                       const SizedBox(height: 20),
                       _feature(
@@ -480,8 +481,8 @@ class VipScreen extends StatelessWidget {
                           placeHolder: 'assets/images/novelux_placeholder_transcpr.jpg',
                         ),
                         const SizedBox(width: 10),
-                        const Text(
-                          'NoveluX',
+                        Text(
+                          AppConstants.appName,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -506,10 +507,10 @@ class VipScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: Text(
-                        'With NoveluX VIP, you get uninterrupted access to our entire library of novels. Read from our library, Ad-Free — enjoy personalized recommendations, expertly curated reading lists for every genre and more, all without ads.',
+                        'With ${AppConstants.appName} VIP, you get uninterrupted access to our entire library of novels. Read from our library, Ad-Free — enjoy personalized recommendations, expertly curated reading lists for every genre and more, all without ads.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Color(0xFF8a7a68),

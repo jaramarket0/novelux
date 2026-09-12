@@ -13,7 +13,7 @@ workflows:
       groups:
         - shorebird          # must contain SHOREBIRD_TOKEN (see notes below)
       vars:
-        PACKAGE_NAME: "com.daniel.novelux.novelux"
+        PACKAGE_NAME: "com.daniel.huxnovel"
       flutter: stable
       java: 17
  

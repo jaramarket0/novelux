@@ -21,6 +21,7 @@ import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:novelux/screen/library/controller/library_controller.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  CONTROLLER
@@ -319,7 +320,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
   void _shareStory(Map story) {
     Share.share(
-      'Check out "${story['title']}" on NoveluX!\n'
+      'Check out "${story['title']}" on ${AppConstants.appName}!\n'
       'https://novelux.onrender.com/story/${story['slug']}',
     );
   }

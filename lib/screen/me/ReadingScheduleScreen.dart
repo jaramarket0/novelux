@@ -16,6 +16,7 @@ import 'package:novelux/screen/reward_screen/reward_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ── Notification service (singleton) ─────────────────────────────────────────
 class NotificationService {
@@ -193,7 +194,7 @@ class ReadingScheduleController extends GetxController {
         Get.defaultDialog(
           title: "Exact Reminders",
           middleText:
-              "To remind you exactly when to read, Novelux needs 'Alarm & Reminders' permission.",
+              "To remind you exactly when to read, ${AppConstants.appName} needs 'Alarm & Reminders' permission.",
           textConfirm: "Allow",
           onConfirm: () async {
             Get.back();
@@ -442,7 +443,7 @@ class _ReadingScheduleScreenState extends State<ReadingScheduleScreen> {
         Get.defaultDialog(
           title: "Exact Reminders",
           middleText:
-              "To remind you exactly when to read, Novelux needs 'Alarm & Reminders' permission.",
+              "To remind you exactly when to read, ${AppConstants.appName} needs 'Alarm & Reminders' permission.",
           textConfirm: "Allow",
           onConfirm: () async {
             Get.back();

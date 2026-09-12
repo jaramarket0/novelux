@@ -25,6 +25,7 @@ import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/send_token_service.dart';
 import 'dart:developer' as myLog;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ─── Globals ────────────────────────────────────────────────────────────────
 
@@ -346,7 +347,7 @@ class MyApp extends StatelessWidget {
     final langController = Get.find<LanguageController>();
     return Obx(
       () => GetMaterialApp(
-        title: 'NoveluX',
+        title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,

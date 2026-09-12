@@ -52,7 +52,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCLs9mxq5mazCncdBhY5XOrQdvQ4RyT7Fk',
-    appId: '1:302060725266:android:bcdc3864fbd7c5a5e324cb',
+    appId: '1:302060725266:android:a8114ab62802fc6ce324cb',
     messagingSenderId: '302060725266',
     projectId: 'novelux-1a13a',
     storageBucket: 'novelux-1a13a.firebasestorage.app',

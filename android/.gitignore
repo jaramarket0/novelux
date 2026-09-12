@@ -12,3 +12,34 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+
+
+# > Task :app:signingReport
+# Variant: debug
+# Config: debug
+# Store: /home/daniel/.android/debug.keystore
+# Alias: AndroidDebugKey
+# MD5: 66:61:D4:8F:68:D5:02:EB:5D:A5:81:7D:DC:40:6F:45
+# SHA1: 89:BC:65:36:82:53:1D:DF:64:1C:3D:E8:F7:FA:06:55:DD:1B:6C:DA
+# SHA-256: 9F:9E:8F:7A:8F:F9:B1:0E:9C:A5:6D:B6:86:CB:D1:95:A3:C5:68:0E:22:77:C4:F9:42:D9:E7:CC:B6:73:C5:2C
+# Valid until: Friday, November 12, 2055
+# ----------
+# Variant: release
+# Config: release
+# Store: /home/daniel/Desktop/flutter apps/Novelux/NoveluX/android/novelux-upload-keystore.jks
+# Alias: upload
+# MD5: 9C:12:DE:1D:16:9C:C5:8B:F0:E6:E2:58:0B:DF:8C:0B
+# SHA1: B7:15:E5:D8:30:33:BF:BA:74:90:AC:94:C1:6F:EA:87:6D:1E:81:2C
+# SHA-256: 70:64:79:23:F9:DB:A6:7B:60:22:91:D2:4A:D4:68:36:F3:3A:BB:1D:39:D2:64:97:78:A8:DC:C3:2E:A8:B9:80
+# Valid until: Saturday, October 25, 2053
+# ----------
+# Variant: profile
+# Config: debug
+# Store: /home/daniel/.android/debug.keystore
+# Alias: AndroidDebugKey
+# MD5: 66:61:D4:8F:68:D5:02:EB:5D:A5:81:7D:DC:40:6F:45
+# SHA1: 89:BC:65:36:82:53:1D:DF:64:1C:3D:E8:F7:FA:06:55:DD:1B:6C:DA
+# SHA-256: 9F:9E:8F:7A:8F:F9:B1:0E:9C:A5:6D:B6:86:CB:D1:95:A3:C5:68:0E:22:77:C4:F9:42:D9:E7:CC:B6:73:C5:2C
+# Valid until: Friday, November 12, 2055
+# ----------

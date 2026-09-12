@@ -6,6 +6,7 @@ import 'package:get/utils.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/config/routes.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 
 // GetX Theme Controller
@@ -247,7 +248,7 @@ class MyApp extends StatelessWidget {
     return GetX<ThemeController>(
       builder: (themeController) {
         return  GetMaterialApp(
-            title: 'NoveluX',
+            title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,

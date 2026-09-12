@@ -26,6 +26,7 @@ import 'package:novelux/screen/notification_screen/notification_screen.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/editorial/ce_books_screen.dart';
 import 'package:novelux/widgets/plan_badge.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
@@ -975,7 +976,7 @@ class MeScreen extends StatelessWidget {
                             txt,
                             sub,
                             Icons.info_outline,
-                            'About NoveluX',
+                            'About ${AppConstants.appName}',
                             Colors.amber,
                             () => Get.to(() => AboutScreen()),
                           ),

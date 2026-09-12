@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/widgets/google_logo.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 /// Bottom sheet shown at the moment a guest touches something that genuinely
 /// needs an account — never on entry to a screen.
@@ -101,7 +102,7 @@ class _AuthPromptSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'NoveluX',
+              AppConstants.appName,
               style: TextStyle(
                 color: title,
                 fontSize: 21,

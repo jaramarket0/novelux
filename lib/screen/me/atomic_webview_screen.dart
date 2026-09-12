@@ -4,6 +4,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter/material.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 //WalletController walletController = Get.put(WalletController());
 
@@ -60,7 +61,7 @@ class _AtomicWebViewScreenState extends State<AtomicWebViewScreen> {
           icon: Icon(Icons.chevron_left_rounded),
         ),
         title: Text(
-          "Novelux",
+          AppConstants.appName,
           style: TextStyle(
             fontFamily: kFontFamily,
             fontWeight: FontWeight.w600,

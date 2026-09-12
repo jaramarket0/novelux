@@ -6,6 +6,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/about/controller/about_controller.dart';
 import 'package:novelux/screen/me/atomic_webview_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class AboutScreen extends GetWidget<AboutController> {
   const AboutScreen({Key? key}) : super(key: key);
@@ -66,7 +67,7 @@ class AboutScreen extends GetWidget<AboutController> {
                   ),
                   SizedBox(height: 12),
                   Text(
-                    'NoveluX',
+                    AppConstants.appName,
                     style: TextStyle(
                       color: txt,
                       fontSize: 18,

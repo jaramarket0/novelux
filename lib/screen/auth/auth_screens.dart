@@ -695,6 +695,7 @@ import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/widgets/google_logo.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 Widget _label(String text) => Text(
@@ -746,7 +747,7 @@ class LoginScreen extends StatelessWidget {
               const SizedBox(height: 48),
               Center(
                 child: Text(
-                  'NoveluX',
+                  AppConstants.appName,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -1033,8 +1034,8 @@ class RegisterScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Join the NoveluX community',
+              Text(
+                'Join the ${AppConstants.appName} community',
                 style: TextStyle(color: Colors.grey, fontSize: 14),
               ),
               const SizedBox(height: 32),

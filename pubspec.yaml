@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+32
+version: 1.0.0+34
 environment:
   sdk: ^3.7.2
 
@@ -137,43 +137,19 @@ flutter:
   # see https://flutter.dev/to/font-from-package
 
 launcher_name:
-  default: "NoveluX"
+  default: "HuxNovel"
 
 
 flutter_launcher_icons:
-  image_path: "assets/images/1024.png"
+  # Android is the rebranded HuxNovel app; iOS is still live as NoveluX and
+  # keeps its existing icon assets, so only Android is regenerated here.
+  image_path: "assets/images/1024_android.png"
   android:
     generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#000000"
-    theme_color: "#C15F3C"
-  linux:
-    generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#C15F3C"
-    theme_color: "#C15F3C"
-  ios:
-    generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#0C15F3C"
-    theme_color: "#C15F3C"
-    remove_alpha_ios: true
-  web:
-    generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#C15F3C"
-    theme_color: "#C15F3C"
-  windows:
-    generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#C15F3C"
-    theme_color: "#C15F3C"
-    icon_size: 256
-  macos:
-    generate: true
-    image_path: "assets/images/1024.png"
-    background_color: "#C15F3C"
-    theme_color: "#C15F3C"
+    image_path: "assets/images/1024_android.png"
+  # `ios: false` must be a bare boolean — a nested `generate: false` map still
+  # triggers iOS generation in 0.14.x. Other platforms are simply omitted.
+  ios: false
 
 flutter_native_splash:
   color: "#000000"

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+
 class AppConstants {
   // Change this to your machine's IP when testing on a physical device
   // Use 10.0.2.2 for Android emulator, localhost for iOS simulator
@@ -39,5 +41,10 @@ class AppConstants {
   static const String userKey         = 'user_data';
 
   // App theme
-  static const String appName = 'NoveluX';
+  //
+  // Android rebranded to HuxNovel (Play package com.daniel.huxnovel). The live
+  // iOS build still ships as NoveluX, so the name resolves per platform until
+  // iOS is rebranded too — at which point this collapses back to a constant.
+  static String get appName =>
+      defaultTargetPlatform == TargetPlatform.iOS ? 'NoveluX' : 'HuxNovel';
 }

@@ -1,4 +1,4 @@
-package com.daniel.novelux.novelux
+package com.daniel.huxnovel
 
 import android.content.Context
 import android.view.LayoutInflater

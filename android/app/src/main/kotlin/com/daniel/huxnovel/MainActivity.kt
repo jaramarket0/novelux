@@ -1,4 +1,4 @@
-package com.daniel.novelux.novelux
+package com.daniel.huxnovel
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -64,7 +64,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     // Cached notification data
     private var cachedTitle = "Reading Novel"
-    private var cachedArtist = "NoveluX"
+    private var cachedArtist = "HuxNovel"
     private var cachedAlbumArt: Bitmap? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -106,7 +106,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             when (call.method) {
            "show" -> {
                 val title = call.argument<String>("title") ?: "Reading Novel"
-                val artist = call.argument<String>("artist") ?: "NoveluX"
+                val artist = call.argument<String>("artist") ?: "HuxNovel"
                 val albumArtUrl = call.argument<String>("albumArt")
                 val playing = call.argument<Boolean>("isPlaying") ?: false
                 val duration = (call.argument<Int>("duration") ?: 0).toLong()
@@ -220,7 +220,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                NOTIF_CHANNEL_ID, "NoveluX Audio",
+                NOTIF_CHANNEL_ID, "HuxNovel Audio",
                 NotificationManager.IMPORTANCE_LOW
             ).apply { description = "Audio playback controls" }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

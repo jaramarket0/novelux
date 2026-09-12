@@ -7,6 +7,7 @@ import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/redeem/redeem_screen.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 // ── Controller ────────────────────────────────────────────────────────────────
 class RewardsController extends GetxController {
@@ -379,7 +380,7 @@ class RewardsScreen extends StatelessWidget {
         title: Column(children: [
           Text('Earn rewards', style: TextStyle(color: txt,
               fontSize: 16, fontWeight: FontWeight.w600)),
-          Text('Coins can only be used on NoveluX',
+          Text('Coins can only be used on ${AppConstants.appName}',
               style: TextStyle(color: sub, fontSize: 11)),
         ]),
         centerTitle: true,

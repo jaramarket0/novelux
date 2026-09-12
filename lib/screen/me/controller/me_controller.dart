@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:novelux/core/constants/app_constants.dart';
 
 class MeController extends GetxController {
   final RxBool isLoading   = false.obs;
@@ -34,7 +35,7 @@ class MeController extends GetxController {
     isLoading.value = false;
     if (res['success']) {
       await Get.find<AuthController>().fetchMe();
-      AppAlert.success('Congratulations! — You are now an author on NoveluX!');
+      AppAlert.success('Congratulations! — You are now an author on ${AppConstants.appName}!');
     } else {
       AppAlert.error(res['error'] ?? 'Failed');
     }
