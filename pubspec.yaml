@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.1+38
+version: 1.0.1+39
 environment:
   sdk: ^3.7.2
 
@@ -153,19 +153,20 @@ flutter_launcher_icons:
   ios: false
 
 flutter_native_splash:
+  # Android = HuxNovel wordmark. iOS (still NoveluX) keeps its existing splash
+  # files, so it is excluded from generation — like flutter_launcher_icons.
   color: "#000000"
-  image: "assets/images/play_store_512.png"
   color_dark: "#000000"
-  image_dark: "assets/images/play_store_512.png"
-  icon_size: 256
+  image: "assets/images/play_store_512.png"
+  image_android: "assets/images/splash_android.png"
+  image_dark_android: "assets/images/splash_android.png"
 
   android_12:
-    image: "assets/images/play_store_512.png"
+    image: "assets/images/splash_android.png"
+    image_dark: "assets/images/splash_android.png"
     icon_background_color: "#000000"
-    image_dark: "assets/images/play_store_512.png"
     icon_background_color_dark: "#000000"
-    icon_size: 256
 
-  web: true
   android: true
-  ios: true    
+  ios: false
+  web: false    
