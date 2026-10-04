@@ -569,7 +569,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                           children: [
                             CustomImageView(
                               radius: BorderRadius.circular(8),
-                              imagePath: 'assets/images/1024.png',
+                              imagePath: AppConstants.logoAsset,
                               width: 30,
                               height: 30,
                               placeHolder:

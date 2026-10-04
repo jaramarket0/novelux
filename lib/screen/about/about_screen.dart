@@ -59,7 +59,7 @@ class AboutScreen extends GetWidget<AboutController> {
                     ),
                     child: Center(
                       child: CustomImageView(
-                        imagePath: 'assets/images/1024.png',
+                        imagePath: AppConstants.logoAsset,
                         radius: BorderRadius.circular(8),
                         placeHolder: 'assets/images/novelux_placeholder_transcpr.jpg',
                       ),

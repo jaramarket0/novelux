@@ -47,4 +47,11 @@ class AppConstants {
   // iOS is rebranded too — at which point this collapses back to a constant.
   static String get appName =>
       defaultTargetPlatform == TargetPlatform.iOS ? 'NoveluX' : 'HuxNovel';
+
+  /// Square brand logo, per platform like [appName]: the rust "N" on iOS,
+  /// the HuxNovel "H" mark on Android.
+  static String get logoAsset =>
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? 'assets/images/1024_IOS.png'
+          : 'assets/images/huxnovel_mark.png';
 }

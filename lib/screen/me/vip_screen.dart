@@ -135,7 +135,7 @@ class VipScreen extends StatelessWidget {
                         children: [
                           Center(
                             child: CustomImageView(
-                              imagePath: 'assets/images/1024.png',
+                              imagePath: AppConstants.logoAsset,
                               width: 40,
                               height: 40,
 
@@ -474,7 +474,7 @@ class VipScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CustomImageView(
-                          imagePath: 'assets/images/1024.png',
+                          imagePath: AppConstants.logoAsset,
                           width: 30,
                           height: 30,
                           radius: BorderRadius.circular(6),

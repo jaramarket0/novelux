@@ -1294,7 +1294,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         title:
             widget.storySlug?.replaceAll('-', ' ').toUpperCase() ??
             'UNKNOWN TITLE',
-        coverUrl: widget.coverUrl ?? 'assets/images/1024.png',
+        coverUrl: widget.coverUrl ?? AppConstants.logoAsset,
         totalChapters: widget.totalChapter ?? 0,
         chapterNumber: widget.chapterNumber!,
         chapterTitle: widget.chapterTitle ?? '',
