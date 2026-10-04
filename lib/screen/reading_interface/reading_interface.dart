@@ -1167,8 +1167,13 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   static int _screenshotBlocks = 0;
   bool _blockingScreenshots = false;
 
+  /// Screenshot builds only (App Store review images, marketing):
+  ///   flutter build ipa --dart-define=ALLOW_SCREENSHOTS=true
+  /// Never ship a store build with this flag — it lifts chapter protection.
+  static const _allowScreenshots = bool.fromEnvironment('ALLOW_SCREENSHOTS');
+
   void _blockScreenshots() {
-    if (_blockingScreenshots) return;
+    if (_allowScreenshots || _blockingScreenshots) return;
     _blockingScreenshots = true;
     _screenshotBlocks++;
     NoScreenshot.instance.screenshotOff();
@@ -3954,8 +3959,14 @@ class _Gift {
   /// Store-localized price. Always reads [IAPService.giftProducts] so an
   /// enclosing Obx has something to listen to, even for the free Flower.
   String get price {
-    final product = IAPService.to.giftProducts[productId];
-    return isFree ? 'Free' : product?.priceString ?? fallbackPrice;
+    final products = IAPService.to.giftProducts;
+    if (isFree) {
+      // RxMap casts its key to String, so never look up the Flower's null
+      // id — but still read the map so the enclosing Obx subscribes.
+      products.length;
+      return 'Free';
+    }
+    return products[productId]?.priceString ?? fallbackPrice;
   }
 }
 
