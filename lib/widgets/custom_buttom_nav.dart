@@ -4,6 +4,9 @@ import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:cupertino_native_better/cupertino_native_better.dart'
+    show CNGlassEffectShape;
+import 'package:novelux/widgets/app_glass.dart';
 
 const _items = [
   (LucideIcons.libraryBig400, 'nav_library'),
@@ -41,33 +44,40 @@ class CustomBottomNav extends StatelessWidget {
             12,
             bottomInset > 0 ? bottomInset : 10,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
+          // iOS 26: Apple's Liquid Glass capsule. Elsewhere: the frosted pill.
+          child: AppGlass(
+            shape: CNGlassEffectShape.capsule,
+            cornerRadius: 32,
+            interactive: true,
+            builder: (context, glass) {
+              final bar = Container(
                 height: 64,
-                decoration: BoxDecoration(
-                  color:
-                      isDark
-                          ? Colors.black.withValues(alpha: 0.4)
-                          : Colors.white.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color:
-                        isDark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.white.withValues(alpha: 0.9),
-                    width: 0.6,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+                decoration:
+                    glass
+                        ? null
+                        : BoxDecoration(
+                          color:
+                              isDark
+                                  ? Colors.black.withValues(alpha: 0.4)
+                                  : Colors.white.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(
+                            color:
+                                isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.white.withValues(alpha: 0.9),
+                            width: 0.6,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.1,
+                              ),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -145,8 +155,16 @@ class CustomBottomNav extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-            ),
+              );
+              if (glass) return bar;
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: bar,
+                ),
+              );
+            },
           ),
         );
       },

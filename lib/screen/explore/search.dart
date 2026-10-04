@@ -8,6 +8,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 // ── Search Controller ─────────────────────────────────────────────────────────
 class SearchController extends GetxController {
@@ -90,14 +91,20 @@ class SearchController extends GetxController {
     _debounce = Timer(const Duration(milliseconds: 380), () => search(q));
   }
 
+  int _searchSeq = 0;
+
   Future<void> search(String q) async {
     final trimmed = q.trim();
     if (trimmed.isEmpty) return;
+    _debounce?.cancel();
+    final seq = ++_searchSeq;
     isLoading.value = true;
     hasSearched.value = true;
     query.value = trimmed;
 
     final res = await ApiService.getStories(search: trimmed);
+    // A slower, older request finishing late must not replace newer results
+    if (seq != _searchSeq) return;
     isLoading.value = false;
 
     if (res['success']) {
@@ -277,12 +284,15 @@ class _SearchScreenState extends State<SearchScreen> {
                                 child: TextField(
                                   controller: _textCtrl,
                                   focusNode: _focusNode,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                  ),
+                                  // Follows the theme — was hard-coded white,
+                                  // invisible on the white light-mode card.
+                                  style: TextStyle(color: txt, fontSize: 14),
+                                  cursorColor: depperBlue,
                                   decoration: InputDecoration(
-                                    fillColor: cardBg,
+                                    // The app-wide input theme fills fields
+                                    // with a dark colour; this one sits on
+                                    // its own card, so no fill.
+                                    filled: false,
                                     enabledBorder: OutlineInputBorder(
                                       borderSide: BorderSide.none,
                                     ),
@@ -292,7 +302,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                     ),
                                     hintText: 'Search novels, authors, tags...',
                                     hintStyle: TextStyle(
-                                      color: Colors.grey,
+                                      color: sub,
                                       fontSize: 13,
                                     ),
                                     border: InputBorder.none,
@@ -728,10 +738,12 @@ class _FindBookSheetState extends State<_FindBookSheet> {
         final handleClr = isDark ? Colors.grey[700]! : Colors.grey[300]!;
         final cancelBg = isDark ? const Color(0xFF3a3a3a) : Colors.grey[200]!;
 
-        return Container(
+        return AppGlass(
+          cornerRadius: 24,
+          builder: (context, glass) => Container(
           padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + kb),
           decoration: BoxDecoration(
-            color: sheetBg,
+            color: glass ? Colors.transparent : sheetBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -924,6 +936,7 @@ class _FindBookSheetState extends State<_FindBookSheet> {
               ],
             ],
           ),
+        ),
         );
       },
     );

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class CeBooksScreen extends StatefulWidget {
   const CeBooksScreen({super.key});
@@ -117,7 +118,7 @@ class _CeBooksScreenState extends State<CeBooksScreen> {
 
     bool saving = false;
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: bg,
@@ -221,7 +222,7 @@ class _CeBooksScreenState extends State<CeBooksScreen> {
   }) =>
       showDialog<bool>(
         context: context,
-        builder: (_) => AlertDialog(
+        builder: (_) => GlassAlertDialog(
           title: Text(title),
           content: Text(message),
           actions: [

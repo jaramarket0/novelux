@@ -78,9 +78,19 @@ const kCoins1000 = 'novelux_coins_1000';
 const kCoins2500 = 'novelux_coins_2500';
 const kCoins5000 = 'novelux_coins_5000';
 
+// Real-money author gifts — consumables, priced in the stores
+const kGiftLike      = 'novelux_gift_like';
+const kGiftIcePop    = 'novelux_gift_icepop';
+const kGiftCoffee    = 'novelux_gift_coffee';
+const kGiftChampagne = 'novelux_gift_champagne';
+const kGiftLuxuryCar = 'novelux_gift_luxurycar';
+
 const _kSubIds  = {kSubWeekly, kSubMonthly, kSubQuarterly, kSubYearly};
 const _kCoinIds = {kCoins100, kCoins500, kCoins1000, kCoins2500, kCoins5000};
-const _kAllIds  = {..._kSubIds, ..._kCoinIds};
+const _kGiftIds = {
+  kGiftLike, kGiftIcePop, kGiftCoffee, kGiftChampagne, kGiftLuxuryCar,
+};
+const _kAllIds  = {..._kSubIds, ..._kCoinIds, ..._kGiftIds};
 
 /// RevenueCat reports Google subscriptions as "productId:basePlanId" —
 /// normalize back to the plain product id used everywhere in the app.
@@ -227,6 +237,10 @@ class IAPService extends GetxService {
 
   final RxList<VipPlan> vipPlans = <VipPlan>[].obs;
   final RxList<CoinPack> coinPacks = <CoinPack>[].obs;
+
+  /// Gift consumables by product id — empty until the store responds.
+  final RxMap<String, rc.StoreProduct> giftProducts =
+      <String, rc.StoreProduct>{}.obs;
 
   // ── Fallback prices shown immediately before store responds ─────────────────
   static const _defaultPlans = [
@@ -430,6 +444,13 @@ class IAPService extends GetxService {
             : pack;
       }).toList();
 
+      giftProducts.value = {
+        for (final id in _kGiftIds)
+          if (packagesById[id]?.storeProduct ?? productsById[id]
+              case final product?)
+            id: product,
+      };
+
       debugPrint(
         '[IAP] Loaded ${packagesById.length} packages + '
         '${productsById.length} direct products from RevenueCat',
@@ -511,12 +532,48 @@ class IAPService extends GetxService {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  //  BUY GIFT (real-money tip to an author)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Purchase a gift consumable. Unlike coins, the backend is not notified
+  /// here — the caller confirms the gift against its pending intent.
+  Future<PurchaseResult> buyGift(String productId) async {
+    if (isPurchasing.value) {
+      return PurchaseResult.error('A purchase is already in progress.');
+    }
+    if (!storeAvailable.value) {
+      return PurchaseResult.error('The store is not available on this device.');
+    }
+
+    errorMsg.value = '';
+
+    var product = giftProducts[productId];
+    if (product == null) {
+      if (!isLoadingPrices.value) await _fetchPrices();
+      product = giftProducts[productId];
+      if (product == null) {
+        return PurchaseResult.error(
+          'Gift not available yet. Please try again shortly.',
+        );
+      }
+    }
+
+    return _launchPurchase(
+      productId: productId,
+      product: product,
+      isSubscription: false,
+      isGift: true,
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   //  INTERNAL: LAUNCH THE NATIVE PURCHASE DIALOG VIA REVENUECAT
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<PurchaseResult> _launchPurchase({
     required String productId,
     required bool isSubscription,
+    bool isGift = false,
     rc.Package? package,
     rc.StoreProduct? product,
   }) async {
@@ -556,6 +613,11 @@ class IAPService extends GetxService {
           debugPrint('[IAP] backend sub sync failed: $e');
         });
         return PurchaseResult.success(vip: true);
+      }
+
+      if (isGift) {
+        isPurchasing.value = false;
+        return PurchaseResult.success();
       }
 
       // Coins: the backend grants the balance

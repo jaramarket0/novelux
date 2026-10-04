@@ -11,6 +11,7 @@ import 'package:novelux/screen/reading_interface/controller/continue_reading_con
 import 'package:novelux/widgets/custom_buttom_nav.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -82,11 +83,6 @@ class _ContinueReadingBanner extends StatelessWidget {
 
         return Obx(() {
           final visible = ctrl.isBannerVisible.value && ctrl.hasData.value;
-          // Debug log to help trace banner visibility
-          // ignore: avoid_print
-          print(
-            'ContinueBanner build: hasData=${ctrl.hasData.value} isBannerVisible=${ctrl.isBannerVisible.value} story=${ctrl.storyTitle.value} slug=${ctrl.storySlug.value}',
-          );
           return AnimatedSlide(
             duration: const Duration(milliseconds: 280),
             curve: Curves.easeInOut,
@@ -107,10 +103,11 @@ class _ContinueReadingBanner extends StatelessWidget {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Card — only as tall as content
-                        Container(
-                          // margin: const EdgeInsets.only(left: 60),
-                          decoration: BoxDecoration(
+                        // Card — only as tall as content. Liquid Glass on iOS 26.
+                        AppGlass(
+                          cornerRadius: 14,
+                          builder: (context, glass) => Container(
+                          decoration: glass ? null : BoxDecoration(
                             color: cardBg,
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
@@ -208,6 +205,7 @@ class _ContinueReadingBanner extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
                         ),
 
                         // Cover image — taller than card, overflows upward

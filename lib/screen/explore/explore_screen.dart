@@ -19,6 +19,7 @@ import 'package:novelux/widgets/custom_image_view.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:novelux/core/constants/app_constants.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class FeaturedCarouselSection extends StatefulWidget {
   const FeaturedCarouselSection({
@@ -430,10 +431,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
       builder:
           (_) => Obx(() {
             final current = langCtrl.locale;
-            return Container(
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+              child: AppGlass(
+                cornerRadius: 24,
+                builder: (context, glass) => Container(
               decoration: BoxDecoration(
-                color: cardBg,
+                color: glass ? Colors.transparent : cardBg,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -508,6 +512,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   ),
                 ],
               ),
+            ),
+            ),
             );
           }),
     );

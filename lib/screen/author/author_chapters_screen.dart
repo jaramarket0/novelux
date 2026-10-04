@@ -7,6 +7,7 @@ import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/app_style.dart';
 import 'dart:developer' as myLog;
+import 'package:novelux/widgets/app_glass.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Controller
@@ -274,7 +275,7 @@ class _AuthorChaptersScreenState extends State<AuthorChaptersScreen> {
     final isSaving = RxBool(false);
     final error = RxString('');
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       isDismissible: true,
       context: Get.context!,
       isScrollControlled: true,

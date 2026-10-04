@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 // ── TTS Audio Controller ──────────────────────────────────────────────────────
 class AudioPlayerController extends GetxController {
@@ -808,7 +809,7 @@ class _AudioPlayerScreenState extends State<AudioPlayerScreen> {
   );
 
   void _speedSheet(BuildContext context) {
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1e1e22),
       shape: const RoundedRectangleBorder(
@@ -1009,6 +1010,7 @@ class MiniAudioPlayer extends StatelessWidget {
                           ctrl.coverUrl.value,
                           width: 40,
                           height: 40,
+                          cacheWidth: 120,
                           fit: BoxFit.cover,
                         )
                         : Container(

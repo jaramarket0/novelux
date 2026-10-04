@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/widgets/google_logo.dart';
 import 'package:novelux/core/constants/app_constants.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 /// Bottom sheet shown at the moment a guest touches something that genuinely
 /// needs an account — never on entry to a screen.
@@ -91,11 +92,14 @@ class _AuthPromptSheet extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Container(
-        margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: AppGlass(
+          cornerRadius: 22,
+          builder: (context, glass) => Container(
         padding: const EdgeInsets.fromLTRB(22, 26, 22, 18),
         decoration: BoxDecoration(
-          color: surface,
+          color: glass ? Colors.transparent : surface,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
@@ -163,6 +167,8 @@ class _AuthPromptSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

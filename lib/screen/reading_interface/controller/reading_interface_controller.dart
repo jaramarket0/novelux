@@ -81,6 +81,7 @@ class ReadingInterfaceController extends GetxController {
   String get currentChapter => _currentChapter.value;
   int get coins => _coins.value;
   double get readingProgress => _readingProgress.value;
+  RxDouble get readingProgressRx => _readingProgress;
 
   // ── Navigation helpers ────────────────────────────────────────────────────
   bool get hasPrevChapter {
@@ -220,16 +221,26 @@ class ReadingInterfaceController extends GetxController {
     totalChapters.value = all.length;
     chapters.clear();
     for (final c in all) {
-      chapters.add(Chapter(c['title'] ?? 'Chapter ${c['chapter_number']}'));
+      chapters.add(
+        Chapter(
+          c['title'] ?? 'Chapter ${c['chapter_number']}',
+          number: (c['chapter_number'] as num?)?.toInt() ?? chapters.length + 1,
+        ),
+      );
     }
   }
 
   // ── Load a specific chapter ───────────────────────────────────────────────
+  int _loadSeq = 0;
+
   Future<void> loadChapter(
     String storySlug,
     int chapterNum,
     String? title,
   ) async {
+    // Jumping around (Contents, next/prev) can leave an older request in
+    // flight; only the latest one may write to the screen.
+    final seq = ++_loadSeq;
     currentStorySlug = storySlug;
     currentChapterNumber.value = chapterNum;
     _currentChapter.value = title ?? 'Chapter $chapterNum';
@@ -252,6 +263,7 @@ class ReadingInterfaceController extends GetxController {
     }
 
     final res = await ApiService.getChapter(storySlug, chapterNum);
+    if (seq != _loadSeq) return;
     isLoadingChapter.value = false;
 
     if (res['success']) {
@@ -504,6 +516,7 @@ class ReadingInterfaceController extends GetxController {
 
 class Chapter {
   final String title;
+  final int number;
   final bool isRead;
-  Chapter(this.title, {this.isRead = false});
+  Chapter(this.title, {required this.number, this.isRead = false});
 }

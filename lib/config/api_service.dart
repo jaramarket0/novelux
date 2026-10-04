@@ -4036,6 +4036,8 @@ class ApiService {
   static Future<Map<String, dynamic>> sendTip(
     String storySlug,
     int coins, {
+    String? giftLabel,
+    int? chapterNumber,
     String? message,
   }) => _request(
     'POST',
@@ -4043,12 +4045,38 @@ class ApiService {
     body: {
       'coins_amount':
           coins.toInt(), // explicit int — prevents string serialisation
+      if (giftLabel != null) 'gift_label': giftLabel,
+      if (chapterNumber != null) 'chapter_number': chapterNumber,
       if (message != null && message.isNotEmpty) 'message': message,
     },
   );
 
   static Future<Map<String, dynamic>> getTopTippers(String storySlug) =>
       _request('GET', '/tips/$storySlug/top-tippers/', requiresAuth: false);
+
+  /// Start a real-money gift — returns `intent_id` and the store `product_id`.
+  static Future<Map<String, dynamic>> createGiftIntent(
+    String storySlug,
+    String giftLabel, {
+    int? chapterNumber,
+    String? message,
+  }) => _request(
+    'POST',
+    '/tips/$storySlug/gift/',
+    body: {
+      'gift_label': giftLabel,
+      if (chapterNumber != null) 'chapter_number': chapterNumber,
+      if (message != null && message.isNotEmpty) 'message': message,
+    },
+  );
+
+  /// After the store purchase: 200 = sent, 202 = paid but still processing.
+  static Future<Map<String, dynamic>> confirmGift(int intentId) =>
+      _request('POST', '/tips/gift/$intentId/confirm/');
+
+  /// Purchase cancelled or failed — drop the pending intent.
+  static Future<Map<String, dynamic>> cancelGift(int intentId) =>
+      _request('DELETE', '/tips/gift/$intentId/confirm/');
 
   // ── Notifications ──────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getNotifications() =>

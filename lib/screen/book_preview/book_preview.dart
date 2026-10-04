@@ -6,6 +6,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/book_preview/bookdetails.dart';
 import 'package:novelux/screen/book_preview/controller/book_preview_controller.dart';
 import 'package:novelux/screen/reading_interface/reading_interface.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 BookPreviewController controller = Get.put(BookPreviewController());
 
@@ -165,7 +166,7 @@ class _BookPreviewState extends State<BookPreview> {
                 showDialog(
                   context: Get.context!,
                   builder: (BuildContext context) {
-                    return AlertDialog(
+                    return GlassAlertDialog(
                       title: Text("Confirm Logout"),
                       content: Text("Are you sure you want to logout?"),
                       actions: [

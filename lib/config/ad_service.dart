@@ -12,23 +12,23 @@ import 'package:novelux/screen/auth/auth_controller.dart';
 // ── Ad unit IDs ───────────────────────────────────────────────────────────────
 class _AdIds {
   static String get banner => Platform.isAndroid
-      ? 'ca-app-pub-8703660804731523/6317420894'
+      ? 'ca-app-pub-8703660804731523/9222345861'
       : 'ca-app-pub-8703660804731523/4178342712';
 
   static String get interstitial => Platform.isAndroid
-      ? 'ca-app-pub-8703660804731523/8736690355'
+      ? 'ca-app-pub-8703660804731523/1611449150'
       : 'ca-app-pub-8703660804731523/5742705826';
 
   static String get rewarded => Platform.isAndroid
-      ? 'ca-app-pub-8703660804731523/8928211716'
+      ? 'ca-app-pub-8703660804731523/8835333054'
       : 'ca-app-pub-8703660804731523/1364477114';
 
   static String get rewardedInterstitial => Platform.isAndroid
-      ? 'ca-app-pub-8703660804731523/7998273427'
+      ? 'ca-app-pub-8703660804731523/2797286741'
       : 'ca-app-pub-8703660804731523/2677558785';
 
   static String get native => Platform.isAndroid
-      ? 'ca-app-pub-8703660804731523/5930408082'
+      ? 'ca-app-pub-8703660804731523/3780205087'
       : 'ca-app-pub-8703660804731523/9490379140';
 }
 

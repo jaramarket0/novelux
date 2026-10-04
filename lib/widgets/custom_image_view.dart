@@ -125,17 +125,35 @@ class CustomImageView extends StatelessWidget {
             color: color,
           );
         case ImageType.network:
+          // Decode at the size it's drawn, not the file's full resolution —
+          // a 1500px cover decoded for a 56px thumbnail is the main cause of
+          // list scroll jank and memory pressure. One dimension only, so the
+          // aspect ratio is kept.
+          return Builder(
+            builder: (context) {
+              final dpr = MediaQuery.devicePixelRatioOf(context);
+              final w = width, h = height;
+              final cacheW =
+                  w != null && w.isFinite ? (w * dpr).round() : null;
+              final cacheH =
+                  cacheW == null && h != null && h.isFinite
+                      ? (h * dpr).round()
+                      : null;
           return CachedNetworkImage(
             height: height,
             width: width,
             fit: fit,
             imageUrl: imagePath!,
             color: color,
+            memCacheWidth: cacheW,
+            memCacheHeight: cacheH,
             placeholder:
                 (context, url) => Image.asset(
                   'assets/images/novelux_placeholder_transcpr.jpg',
                   height: height,
                   width: width,
+                  cacheWidth: cacheW,
+                  cacheHeight: cacheH,
                   fit: fit ?? BoxFit.cover,
                 ),
             // Container(
@@ -151,8 +169,12 @@ class CustomImageView extends StatelessWidget {
                   placeHolder,
                   height: height,
                   width: width,
+                  cacheWidth: cacheW,
+                  cacheHeight: cacheH,
                   fit: fit ?? BoxFit.cover,
                 ),
+          );
+            },
           );
         case ImageType.png:
         default:

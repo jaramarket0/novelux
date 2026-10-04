@@ -5,6 +5,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/download_screen/controller/download_controller.dart';
 import 'package:novelux/screen/reading_interface/reading_interface.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class DownloadScreen extends StatelessWidget {
   const DownloadScreen({super.key});
@@ -144,7 +145,7 @@ class DownloadScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder:
-          (_) => AlertDialog(
+          (_) => GlassAlertDialog(
             backgroundColor: const Color(0xFF2a2a2a),
             title: const Text(
               'Delete downloads?',

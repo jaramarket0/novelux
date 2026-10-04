@@ -1,4 +1,6 @@
-// import 'package:flutter/cupertino.dart';
+// import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter_spinkit/flutter_spinkit.dart';
 // import 'package:get/get.dart';
@@ -545,6 +547,7 @@ import 'package:novelux/screen/library/controller/library_controller.dart';
 import 'package:novelux/screen/reward_screen/reward_screen.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -1135,7 +1138,7 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   void _showRemoveDialog(LibraryController ctrl, String slug) {
     Get.dialog(
-      AlertDialog(
+      GlassAlertDialog(
         backgroundColor: const Color(0xFF2a2a2a),
         title: const Text(
           'Remove Bookmark',
@@ -1165,7 +1168,7 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   void _showClearDialog(LibraryController ctrl) {
     Get.dialog(
-      AlertDialog(
+      GlassAlertDialog(
         backgroundColor: const Color(0xFF2a2a2a),
         title: const Text(
           'Clear history',
@@ -1535,10 +1538,17 @@ class _LibraryBannerState extends State<_LibraryBanner> {
                                 coverUrl.isNotEmpty
                                     ? Hero(
                                       tag: 'hero-banner-${story['slug']}',
-                                      child: Image.network(
-                                        coverUrl,
+                                      // Disk-cached, decoded at screen width
+                                      child: CachedNetworkImage(
+                                        imageUrl: coverUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder:
+                                        memCacheWidth:
+                                            (MediaQuery.sizeOf(context).width *
+                                                    MediaQuery.devicePixelRatioOf(
+                                                      context,
+                                                    ))
+                                                .round(),
+                                        errorWidget:
                                             (_, __, ___) =>
                                                 _bannerPlaceholder(),
                                       ),

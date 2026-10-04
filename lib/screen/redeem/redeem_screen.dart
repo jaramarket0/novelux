@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 List<Map<String, dynamic>> parseRedeemPackages(dynamic payload) {
   if (payload is List) {
@@ -59,7 +60,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
 
   Future<void> _onRedeem(Map pkg) async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showGlassBottomSheet<bool>(
       context: context,
       backgroundColor: isDark ? const Color(0xFF1e1e20) : Colors.white,
       shape: const RoundedRectangleBorder(
@@ -166,7 +167,7 @@ class _RedeemScreenState extends State<RedeemScreen> {
 
   void _showSuccessDialog(String label, String expiresAt) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: context,
       backgroundColor: isDark ? const Color(0xFF1e1e20) : Colors.white,
       shape: const RoundedRectangleBorder(

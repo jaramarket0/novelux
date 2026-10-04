@@ -1111,6 +1111,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/author/author_chapters_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class AuthorDashboardController extends GetxController {
   final RxBool isLoading = false.obs;
@@ -1458,7 +1459,7 @@ class AuthorDashboardScreen extends StatelessWidget {
       );
 
   void _showCreateStorySheet(BuildContext ctx, AuthorDashboardController ctrl) {
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1a1a1a),
@@ -1718,7 +1719,7 @@ class AuthorDashboardScreen extends StatelessWidget {
     final error = RxString('');
     final wordCount = RxInt(0);
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1a1a1a),
@@ -2176,7 +2177,7 @@ class AuthorDashboardScreen extends StatelessWidget {
 
   void _requestPayout(BuildContext context) {
     Get.dialog(
-      AlertDialog(
+      GlassAlertDialog(
         backgroundColor: const Color(0xFF2a2a2a),
         title: const Text(
           'Request Payout',

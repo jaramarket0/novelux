@@ -27,6 +27,7 @@ import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/editorial/ce_books_screen.dart';
 import 'package:novelux/widgets/plan_badge.dart';
 import 'package:novelux/core/constants/app_constants.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 class MeScreen extends StatelessWidget {
   const MeScreen({super.key});
@@ -1149,7 +1150,7 @@ class MeScreen extends StatelessWidget {
 
   void _becomeAuthorDialog(MeController ctrl) {
     Get.dialog(
-      AlertDialog(
+      GlassAlertDialog(
         backgroundColor: const Color(0xFF2a2a2a),
         title: const Text(
           'Become an Author',
@@ -1185,7 +1186,7 @@ class MeScreen extends StatelessWidget {
 
   void _signOutDialog(AuthController auth) {
     Get.dialog(
-      AlertDialog(
+      GlassAlertDialog(
         backgroundColor: const Color(0xFF2a2a2a),
         title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
         content: const Text(
@@ -1255,7 +1256,7 @@ class MeScreen extends StatelessWidget {
             }
           }
 
-          return AlertDialog(
+          return GlassAlertDialog(
             backgroundColor: const Color(0xFF2a2a2a),
             title: const Text(
               'Delete Account',
@@ -1395,7 +1396,7 @@ class MeScreen extends StatelessWidget {
             }
           }
 
-          return AlertDialog(
+          return GlassAlertDialog(
             backgroundColor: const Color(0xFF2a2a2a),
             title: Text(
               isEnabled ? 'Turn Off Restricted Mode' : 'Turn On Restricted Mode',

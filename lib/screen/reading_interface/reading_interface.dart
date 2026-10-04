@@ -21,6 +21,9 @@ import 'package:novelux/screen/reading_interface/controller/reading_interface_co
 import 'package:novelux/screen/reading_interface/controller/continue_reading_controller.dart';
 import 'package:novelux/screen/download_screen/controller/download_controller.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
+import 'package:novelux/screen/reading_interface/reading_position_store.dart';
+import 'package:novelux/screen/reading_interface/chapter_html.dart';
+import 'package:novelux/widgets/app_glass.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:confetti/confetti.dart';
@@ -53,15 +56,6 @@ class _GiftRankingSheetState extends State<_GiftRankingSheet> {
   List<Map<String, dynamic>> _tippers = [];
   List<Map<String, dynamic>> _flowers = [];
   bool _loading = true;
-
-  // Gift points mapping — matches _gifts list
-  static const _giftPoints = {
-    'Like': 10,
-    'Ice pop': 20,
-    'Coffee': 60,
-    'Champagne': 100,
-    'Luxury Car': 400,
-  };
 
   @override
   void initState() {
@@ -106,17 +100,11 @@ class _GiftRankingSheetState extends State<_GiftRankingSheet> {
     }
   }
 
-  // Convert coin total to gift points for display
-  int _giftPts(Map t) {
-    // Backend may return the gift label or we estimate from coins
-    final label = t['gift_label']?.toString() ?? '';
-    if (_giftPoints.containsKey(label)) {
-      final count = t['count'] ?? 1;
-      return (_giftPoints[label]! * count) as int;
-    }
-    // Fallback: use coins as approximate points
-    return (t['total_coins'] ?? t['coins'] ?? t['total'] ?? 0) as int;
-  }
+  // Gift points are computed server-side from the gift catalogue; older
+  // backends only sent coin totals.
+  int _giftPts(Map t) =>
+      (t['gift_points'] ?? t['total_coins'] ?? t['coins'] ?? t['total'] ?? 0)
+          as int;
 
   String _flowerCount(Map t) {
     final c = t['count'] ?? t['total_coins'] ?? t['total'] ?? 0;
@@ -128,10 +116,13 @@ class _GiftRankingSheetState extends State<_GiftRankingSheet> {
     final screenH = MediaQuery.of(context).size.height;
     final list = _tab == 0 ? _tippers : _flowers;
 
-    return Container(
+    return AppGlass(
+      forceDark: true,
+      cornerRadius: 20,
+      builder: (context, glass) => Container(
       height: screenH * 0.88,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1a1a1e),
+      decoration: BoxDecoration(
+        color: glass ? Colors.transparent : Color(0xFF1a1a1e),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -462,6 +453,7 @@ class _GiftRankingSheetState extends State<_GiftRankingSheet> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -508,7 +500,7 @@ class _Podium extends StatelessWidget {
 
   String _subtitle(Map t) {
     if (tab == 0) {
-      final pts = t['total_coins'] ?? t['coins'] ?? 0;
+      final pts = t['gift_points'] ?? t['total_coins'] ?? t['coins'] ?? 0;
       return '$pts gift pts';
     }
     final c = t['count'] ?? 1;
@@ -754,10 +746,13 @@ class _AboutRankingSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenH = MediaQuery.of(context).size.height;
 
-    return Container(
+    return AppGlass(
+      forceDark: true,
+      cornerRadius: 20,
+      builder: (context, glass) => Container(
       height: screenH * 0.82,
-      decoration: const BoxDecoration(
-        color: Color(0xFF111114),
+      decoration: BoxDecoration(
+        color: glass ? Colors.transparent : Color(0xFF111114),
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
@@ -835,14 +830,14 @@ class _AboutRankingSheet extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        _ptRow('❤️', 'Like', '10 Gift points', true),
-                        _ptRow('🍦', 'Ice pop', '20 Gift points', false),
-                        _ptRow('☕', 'Coffee', '60 Gift points', true),
-                        _ptRow('🍾', 'Champagne', '100 Gift points', false),
+                        _ptRow('❤️', 'Like', '20 Gift points', true),
+                        _ptRow('🍦', 'Ice pop', '200 Gift points', false),
+                        _ptRow('☕', 'Coffee', '500 Gift points', true),
+                        _ptRow('🍾', 'Champagne', '1,000 Gift points', false),
                         _ptRow(
                           '🚗',
                           'Luxury car',
-                          '400 Gift points',
+                          '3,000 Gift points',
                           true,
                           isLast: true,
                         ),
@@ -873,6 +868,7 @@ class _AboutRankingSheet extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1025,6 +1021,123 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   late final LibraryController libCtrl;
   late final DownloadController downloadCtrl;
 
+  // ── Resume where the reader left off ──────────────────────────────────────
+  // Saving starts only once the resume prompt is settled, so opening a book
+  // never overwrites the saved spot with "chapter N, top of page".
+  bool _positionReady = false;
+  final List<Worker> _positionWorkers = [];
+
+  void _savePosition() {
+    final slug = widget.storySlug;
+    if (!_positionReady || slug == null || ctrl.isLoadingChapter.value) return;
+    ReadingPositionStore.save(
+      slug,
+      ReadingPosition(
+        chapter: ctrl.currentChapterNumber.value,
+        chapterTitle: ctrl.currentChapter,
+        fraction: ctrl.readingProgress,
+        savedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// After the opening chapter loads: offer the saved spot if it differs.
+  Future<void> _offerResume() async {
+    final slug = widget.storySlug!;
+    final saved = await ReadingPositionStore.get(slug);
+    if (!mounted) return;
+    final opened = ctrl.currentChapterNumber.value;
+    final worthAsking =
+        saved != null &&
+        (saved.chapter != opened || saved.fraction >= 0.03);
+
+    if (!worthAsking) {
+      _positionReady = true;
+      if (ctrl.isCurrentChapterLocked.value) _showCurrentChapterLockedModal();
+      return;
+    }
+
+    final pct = (saved.fraction * 100).round();
+    final where =
+        saved.chapter == opened
+            ? 'You were $pct% through this chapter.'
+            : 'You were on Chapter ${saved.chapter}'
+                '${saved.chapterTitle.isNotEmpty ? ' · ${saved.chapterTitle}' : ''}'
+                '${pct > 0 ? ' ($pct%)' : ''}.';
+    final resume = await Get.dialog<bool>(
+      GlassAlertDialog(
+        backgroundColor: const Color(0xFF2a2a2a),
+        title: const Text(
+          'Pick up where you left off?',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+        ),
+        content: Text(where, style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text(
+              saved.chapter == opened ? 'Start over' : 'Stay here',
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text(
+              'Resume',
+              style: TextStyle(
+                color: depperBlue,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+
+    if (resume == true) {
+      if (saved.chapter != opened) {
+        await ctrl.loadChapter(slug, saved.chapter, saved.chapterTitle);
+        if (!mounted) return;
+      }
+      if (ctrl.isCurrentChapterLocked.value) {
+        _showCurrentChapterLockedModal();
+      } else {
+        await _jumpToFraction(saved.fraction);
+      }
+    } else if (ctrl.isCurrentChapterLocked.value) {
+      _showCurrentChapterLockedModal();
+    }
+    _positionReady = true;
+    _savePosition();
+  }
+
+  /// Scroll to [fraction] once the chapter's HTML has been laid out.
+  Future<void> _jumpToFraction(double fraction) async {
+    if (fraction <= 0.01) return;
+    for (var i = 0; i < 20; i++) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+      final sc = ctrl.scrollController;
+      if (sc.hasClients && sc.position.maxScrollExtent > 0) {
+        sc.jumpTo(fraction * sc.position.maxScrollExtent);
+        return;
+      }
+    }
+  }
+
+  // Normalised chapter HTML, keyed by raw HTML. Page-flip mode alternates
+  // between two chapters, so keep a couple rather than re-cleaning per frame.
+  final Map<String, String> _cleanHtmlCache = {};
+  String _cleanHtml(String raw) {
+    final hit = _cleanHtmlCache[raw];
+    if (hit != null) return hit;
+    if (_cleanHtmlCache.length >= 3) {
+      _cleanHtmlCache.remove(_cleanHtmlCache.keys.first);
+    }
+    return _cleanHtmlCache[raw] = normalizeChapterHtml(raw);
+  }
+
   // Flip animation
   late AnimationController _flipCtrl;
   late Animation<double> _flipAnim;
@@ -1134,10 +1247,31 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
             widget.chapterTitle,
           )
           .then((_) {
-            if (mounted && ctrl.isCurrentChapterLocked.value) {
-              _showCurrentChapterLockedModal();
-            }
+            // Offers the saved spot; also shows the locked-chapter modal
+            if (mounted) _offerResume();
           });
+      _positionWorkers.addAll([
+        debounce(
+          ctrl.readingProgressRx,
+          (_) => _savePosition(),
+          time: const Duration(seconds: 1),
+        ),
+        // On each finished chapter load (the title is only final by then):
+        // save the spot and keep the "Continue reading" card on this chapter.
+        ever(ctrl.isLoadingChapter, (bool loading) {
+          if (loading || !_positionReady) return;
+          _savePosition();
+          if (Get.isRegistered<ContinueReadingController>()) {
+            ContinueReadingController.to.saveLastRead(
+              title: widget.storyTitle ?? widget.storySlug ?? '',
+              slug: widget.storySlug!,
+              cover: widget.coverUrl ?? '',
+              chapter: ctrl.currentChapterNumber.value,
+              chapterTitle: ctrl.currentChapter,
+            );
+          }
+        }),
+      ]);
     }
     // Start reading time tracker
     if (!Get.isRegistered<ReadingScheduleController>()) {
@@ -1166,6 +1300,10 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
 
   @override
   void dispose() {
+    _savePosition();
+    for (final w in _positionWorkers) {
+      w.dispose();
+    }
     appRouteObserver.unsubscribe(this);
     _unblockScreenshots();
     ctrl.stopReadingTimer();
@@ -1435,7 +1573,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   }) {
     final auth = Get.find<AuthController>();
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: context,
       isDismissible: isDismissible,
       enableDrag: isDismissible,
@@ -1611,7 +1749,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     final svc = IAPService.to;
     final auth = Get.find<AuthController>();
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: context,
       isScrollControlled: true,
       isDismissible: isDismissible,
@@ -2295,16 +2433,24 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         ),
         const SizedBox(height: 20),
         // Body
+        // Cleaned so the reader's colours / size / spacing always apply
         HtmlWidget(
-          content.isNotEmpty ? content : 'Loading...',
+          content.isNotEmpty ? _cleanHtml(content) : 'Loading...',
           textStyle: _readingTextStyle(
             size: ctrl.fontSize,
             color: ctrl.currentTextColor,
             height: ctrl.currentLineHeight,
           ),
           customStylesBuilder: (element) {
-            if (element.localName == 'p') {
-              return {'text-align': 'justify'};
+            switch (element.localName) {
+              case 'p':
+              case 'div':
+                // One consistent gap between paragraphs, none above
+                return {'text-align': 'justify', 'margin': '0 0 0.85em 0'};
+              case 'blockquote':
+                return {'margin': '0 0 0.85em 1em'};
+              case 'li':
+                return {'margin': '0 0 0.4em 0'};
             }
             return null;
           },
@@ -2322,7 +2468,8 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
             builder:
                 (ctx) => _EndOfChapterSection(
                   storySlug: widget.storySlug,
-                  chapterNumber: widget.chapterNumber,
+                  // The chapter being read, not the one the reader opened on
+                  chapterNumber: ctrl.currentChapterNumber.value,
                   controller: ctrl,
                   onCommentTap: () => _showComments(ctx),
                   onNext:
@@ -2341,14 +2488,41 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   );
 
   // ── Top bar ───────────────────────────────────────────────────────────────
+  /// Reader chrome. iOS 26: a floating Liquid Glass panel inset from the
+  /// edges. Elsewhere: the original full-width bar in the page colour.
+  Widget _readerBar({required bool top, required Widget child}) {
+    if (!nativeGlass) {
+      final bar = Container(
+        color: ctrl.currentBackgroundColor.withOpacity(0.97),
+        child: top ? SafeArea(child: child) : child,
+      );
+      return top ? bar : SafeArea(child: bar);
+    }
+    return SafeArea(
+      top: top,
+      bottom: !top,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(10, top ? 4 : 0, 10, top ? 0 : 6),
+        child: AppGlass(
+          cornerRadius: 26,
+          forceDark:
+              ThemeData.estimateBrightnessForColor(
+                ctrl.currentBackgroundColor,
+              ) ==
+              Brightness.dark,
+          builder: (_, __) => child,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTopBar(BuildContext context) => Positioned(
     top: 0,
     left: 0,
     right: 0,
-    child: Container(
-      color: ctrl.currentBackgroundColor.withOpacity(0.97),
-      child: SafeArea(
-        child: Padding(
+    child: _readerBar(
+      top: true,
+      child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
@@ -2443,7 +2617,6 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
             ],
           ),
         ),
-      ),
     ),
   );
 
@@ -2452,9 +2625,8 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     bottom: 0,
     left: 0,
     right: 0,
-    child: SafeArea(
-      child: Container(
-        color: ctrl.currentBackgroundColor.withOpacity(0.97),
+    child: _readerBar(
+      top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2603,7 +2775,6 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
             ),
           ],
         ),
-      ),
     ),
   );
 
@@ -3181,10 +3352,11 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                           itemCount: ctrl.chapters.length,
                           itemBuilder: (_, i) {
                             final ch = ctrl.chapters[i];
-                            final isCurrent = ctrl.currentChapter == ch.title;
+                            final isCurrent =
+                                ctrl.currentChapterNumber.value == ch.number;
                             return ListTile(
                               leading: Text(
-                                '${i + 1}',
+                                '${ch.number}',
                                 style: TextStyle(
                                   color:
                                       isCurrent ? depperBlue : Colors.grey[600],
@@ -3215,7 +3387,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                                 if (widget.storySlug != null) {
                                   ctrl.loadChapter(
                                     widget.storySlug!,
-                                    i + 1,
+                                    ch.number,
                                     ch.title,
                                   );
                                 }
@@ -3255,7 +3427,7 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
       }
     });
 
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1a1a1a),
@@ -3768,20 +3940,32 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
 }
 
 // ── End of Chapter Section ────────────────────────────────────────────────────
+/// Labels must match GIFTS in the backend's apps/tips/models.py. Paid gifts
+/// are store consumables; [fallbackPrice] shows until the store answers.
 class _Gift {
   final String emoji;
   final String label;
-  final int coins;
-  const _Gift(this.emoji, this.label, this.coins);
+  final String? productId; // null = free (ad-gated Flower)
+  final String fallbackPrice;
+  const _Gift(this.emoji, this.label, this.productId, this.fallbackPrice);
+
+  bool get isFree => productId == null;
+
+  /// Store-localized price. Always reads [IAPService.giftProducts] so an
+  /// enclosing Obx has something to listen to, even for the free Flower.
+  String get price {
+    final product = IAPService.to.giftProducts[productId];
+    return isFree ? 'Free' : product?.priceString ?? fallbackPrice;
+  }
 }
 
 const _gifts = [
-  _Gift('🌸', 'Flower', 0),
-  _Gift('❤️', 'Like', 10),
-  _Gift('🍦', 'Ice pop', 50),
-  _Gift('☕', 'Coffee', 100),
-  _Gift('🍾', 'Champagne', 500),
-  _Gift('🚗', 'Luxury Car', 1000),
+  _Gift('🌸', 'Flower', null, 'Free'),
+  _Gift('❤️', 'Like', kGiftLike, '₦200'),
+  _Gift('🍦', 'Ice pop', kGiftIcePop, '₦2,000'),
+  _Gift('☕', 'Coffee', kGiftCoffee, '₦5,000'),
+  _Gift('🍾', 'Champagne', kGiftChampagne, '₦10,000'),
+  _Gift('🚗', 'Luxury Car', kGiftLuxuryCar, '₦30,000'),
 ];
 
 class _EndOfChapterSection extends StatefulWidget {
@@ -3892,7 +4076,7 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
 
     // Free gift → the ad *is* the payment, so it must be watched in full
     // before the flower is recorded.
-    if (gift.coins == 0) {
+    if (gift.isFree) {
       final ads = AdService.instance;
       if (!ads.isRewardedReady) {
         AppAlert.info('Ad not ready — Please try again in a moment.');
@@ -3918,6 +4102,8 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
       final res = await ApiService.sendTip(
         widget.storySlug!,
         0,
+        giftLabel: gift.label,
+        chapterNumber: widget.chapterNumber,
         message: 'Sent a ${gift.label} gift!',
       );
       if (!mounted) return;
@@ -3932,20 +4118,57 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
       return;
     }
 
+    // Paid gift → real money through the store. The server holds a pending
+    // intent so the gift reaches the right story even if the app dies after
+    // payment (RevenueCat's webhook completes it).
     setState(() => _isSending = true);
-    final res = await ApiService.sendTip(
+    final intent = await ApiService.createGiftIntent(
       widget.storySlug!,
-      gift.coins,
+      gift.label,
+      chapterNumber: widget.chapterNumber,
       message: 'Sent a ${gift.label} gift!',
     );
-    setState(() => _isSending = false);
+    if (intent['success'] != true) {
+      if (!mounted) return;
+      setState(() {
+        _isSending = false;
+        _selectedGiftIndex = null;
+      });
+      AppAlert.error(intent['error'] ?? 'Could not send gift');
+      return;
+    }
+    final intentId = intent['data']['intent_id'] as int;
 
-    if (res['success']) {
-      _playAnimation(gift.emoji);
-      Get.find<AuthController>().refreshCoins();
-    } else {
-      setState(() => _selectedGiftIndex = null);
-      AppAlert.error(res['error'] ?? 'Could not send gift');
+    final purchase = await IAPService.to.buyGift(
+      intent['data']['product_id'] as String,
+    );
+    if (!purchase.ok) {
+      // A pending payment may still complete — the webhook will finish it.
+      if (purchase.status != PurchaseStatus2.pending) {
+        ApiService.cancelGift(intentId);
+      }
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      if (purchase.status == PurchaseStatus2.pending) {
+        AppAlert.info(
+          'Payment pending — your gift will be sent once it clears.',
+        );
+      } else if (purchase.failed) {
+        AppAlert.error(purchase.message ?? 'Purchase failed');
+      }
+      return;
+    }
+
+    // Paid. Anything short of 200 means "still processing", never "failed".
+    final res = await ApiService.confirmGift(intentId);
+    if (!mounted) return;
+    setState(() => _isSending = false);
+    _playAnimation(gift.emoji);
+    if (res['status'] != 200) {
+      AppAlert.info(
+        res['data']?['detail'] ??
+            'Payment received — your gift will appear shortly.',
+      );
     }
   }
 
@@ -4301,7 +4524,7 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
                       itemBuilder: (_, i) {
                         final gift = _gifts[i];
                         final isSelected = _selectedGiftIndex == i;
-                        final isFree = gift.coins == 0;
+                        final isFree = gift.isFree;
                         return GestureDetector(
                           onTap: () {
                             setState(() => _selectedGiftIndex = i);
@@ -4378,15 +4601,17 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
                                         ),
                                       ),
                                       const SizedBox(height: 2),
-                                      Text(
-                                        isFree ? 'Free' : '🪙 ${gift.coins}',
-                                        style: TextStyle(
-                                          color:
-                                              isFree
-                                                  ? Colors.greenAccent[400]
-                                                  : Colors.orange[300],
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w600,
+                                      Obx(
+                                        () => Text(
+                                          gift.price,
+                                          style: TextStyle(
+                                            color:
+                                                isFree
+                                                    ? Colors.greenAccent[400]
+                                                    : Colors.orange[300],
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -4402,8 +4627,7 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
 
                   // Send button — visible when a paid gift is selected
                   if (_selectedGiftIndex != null &&
-                      !_gifts[_selectedGiftIndex!].coins.isNaN &&
-                      _gifts[_selectedGiftIndex!].coins > 0)
+                      !_gifts[_selectedGiftIndex!].isFree)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                       child: SizedBox(
@@ -4440,7 +4664,7 @@ class _EndOfChapterSectionState extends State<_EndOfChapterSection>
                                       ),
                                       const SizedBox(width: 10),
                                       Text(
-                                        'Send ${_gifts[_selectedGiftIndex!].label}  ·  🪙 ${_gifts[_selectedGiftIndex!].coins}',
+                                        'Send ${_gifts[_selectedGiftIndex!].label}  ·  ${_gifts[_selectedGiftIndex!].price}',
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
@@ -4832,10 +5056,12 @@ class _SuggestedForYouSheetState extends State<_SuggestedForYouSheet> {
         final story =
             widget.stories.isNotEmpty ? widget.stories[_idx] as Map : null;
 
-        return Container(
+        return AppGlass(
+          cornerRadius: 24,
+          builder: (context, glass) => Container(
           height: h * 0.94,
           decoration: BoxDecoration(
-            color: cardBg,
+            color: glass ? Colors.transparent : cardBg,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -5069,6 +5295,7 @@ class _SuggestedForYouSheetState extends State<_SuggestedForYouSheet> {
               ),
             ],
           ),
+        ),
         );
       },
     );

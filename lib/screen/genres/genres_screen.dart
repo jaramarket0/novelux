@@ -1,3 +1,6 @@
+import 'package:cupertino_native_better/cupertino_native_better.dart'
+    show CNGlassEffectShape;
+import 'package:novelux/widgets/app_glass.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -54,10 +57,29 @@ class _GenresScreenState extends State<GenresScreen> {
         final sub = isDark ? Colors.grey[400]! : Colors.grey[600]!;
         final divClr = isDark ? const Color(0xFF2a2a2a) : Colors.grey[200]!;
 
+        // iOS 26: content scrolls under a see-through bar (fading into the
+        // page colour) and the search button sits in a glass circle.
+        final glass = nativeGlass;
         return Scaffold(
+          extendBodyBehindAppBar: glass,
           appBar: AppBar(
             automaticallyImplyLeading: false,
-            backgroundColor: bg,
+            backgroundColor: glass ? Colors.transparent : bg,
+            surfaceTintColor: glass ? Colors.transparent : null,
+            scrolledUnderElevation: glass ? 0 : null,
+            flexibleSpace:
+                glass
+                    ? DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [bg, bg.withValues(alpha: 0.85), bg.withValues(alpha: 0)],
+                          stops: const [0, 0.6, 1],
+                        ),
+                      ),
+                    )
+                    : null,
             elevation: 0,
             title: Text(
               'Genres',
@@ -69,11 +91,18 @@ class _GenresScreenState extends State<GenresScreen> {
               ),
             ),
             actions: [
-              IconButton(
-                icon: Icon(Icons.search, color: txt),
-                onPressed: () {
-                  Get.to(() => const SearchScreen());
-                },
+              Padding(
+                padding: EdgeInsets.only(right: glass ? 12 : 0),
+                child: AppGlass(
+                  shape: CNGlassEffectShape.circle,
+                  interactive: true,
+                  builder: (context, _) => IconButton(
+                    icon: Icon(Icons.search, color: txt),
+                    onPressed: () {
+                      Get.to(() => const SearchScreen());
+                    },
+                  ),
+                ),
               ),
             ],
           ),
@@ -222,7 +251,18 @@ class _GenresScreenState extends State<GenresScreen> {
 
                         return ListView.builder(
                           controller: _scrollCtrl,
-                          padding: const EdgeInsets.all(14),
+                          // Under a see-through bar the list must start below it
+                          // (status bar + toolbar; this context is above Scaffold)
+                          padding: EdgeInsets.fromLTRB(
+                            14,
+                            14 +
+                                (glass
+                                    ? MediaQuery.paddingOf(context).top +
+                                        kToolbarHeight
+                                    : 0),
+                            14,
+                            14,
+                          ),
                           itemCount: itemCount,
                           itemBuilder: (_, i) {
                             // Footer

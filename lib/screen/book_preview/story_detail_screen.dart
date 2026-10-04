@@ -22,6 +22,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:novelux/screen/library/controller/library_controller.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:novelux/core/constants/app_constants.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  CONTROLLER
@@ -382,7 +383,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   void _showReportSheet(BuildContext ctx, String slug) {
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: ctx,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF1e1e22),
@@ -394,7 +395,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   void _showUnlockSheet(BuildContext ctx, Map ch) {
-    showModalBottomSheet(
+    showGlassBottomSheet(
       context: ctx,
       backgroundColor: const Color(0xFF1e1e22),
       shape: const RoundedRectangleBorder(

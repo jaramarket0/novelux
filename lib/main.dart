@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:cupertino_native_better/cupertino_native_better.dart'
+    show CNTabBarRouteObserver;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -357,7 +359,8 @@ class MyApp extends StatelessWidget {
         fallbackLocale: const Locale('en', 'US'),
         getPages: AppRoutes.pages,
         initialRoute: AppRoutes.splashScreen,
-        navigatorObservers: [appRouteObserver],
+        // CNTabBarRouteObserver lets the iOS 26 glass hide under sheets/dialogs
+        navigatorObservers: [appRouteObserver, CNTabBarRouteObserver()],
       ),
     );
   }

@@ -8,6 +8,7 @@ import 'package:novelux/screen/redeem/redeem_screen.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:novelux/core/constants/app_constants.dart';
+import 'package:novelux/widgets/app_glass.dart';
 
 // ── Controller ────────────────────────────────────────────────────────────────
 class RewardsController extends GetxController {
@@ -809,7 +810,7 @@ class RewardsScreen extends StatelessWidget {
     void Function(Map, {String? response}) onComplete,
   ) {
     final controller = TextEditingController();
-    Get.dialog(AlertDialog(
+    Get.dialog(GlassAlertDialog(
       backgroundColor: const Color(0xFF1e1e22),
       title: Text(task['title'] ?? 'Complete task',
           style: const TextStyle(color: Colors.white, fontSize: 16)),
