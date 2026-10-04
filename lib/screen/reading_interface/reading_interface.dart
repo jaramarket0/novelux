@@ -2275,7 +2275,14 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                   // ad, so toggling the menu five times fired five banner
                   // requests. Keyed on the chapter so it still refreshes once
                   // per chapter, which is the cadence we actually want.
+                  //
+                  // The key is what actually keeps it alive: the bars and FABs
+                  // above are conditional, so this child's index shifts on
+                  // every menu toggle. Unkeyed Stack children are matched by
+                  // position, so without it Flutter rebuilt the banner — and
+                  // re-requested an ad — on each tap.
                   Positioned(
+                    key: const ValueKey('reader-banner-ad'),
                     bottom: 0,
                     left: 0,
                     right: 0,
