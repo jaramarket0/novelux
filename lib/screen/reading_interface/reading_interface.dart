@@ -1387,6 +1387,12 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         await ctrl.goPrevChapter();
       }
       setState(() => _nextContent = ctrl.chapterContent.value);
+      if (mounted && ctrl.isCurrentChapterLocked.value) {
+        await _flipCtrl.reverse();
+        setState(() => _isAnimating = false);
+        _showCurrentChapterLockedModal();
+        return;
+      }
       // Phase 2: unfold new page
       await _flipCtrl.reverse();
       setState(() => _isAnimating = false);
@@ -1399,8 +1405,12 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         }
       } else {
         await ctrl.goPrevChapter();
+        if (mounted && ctrl.isCurrentChapterLocked.value) {
+          _showCurrentChapterLockedModal();
+          return;
+        }
       }
-      ctrl.scrollController.jumpTo(0);
+      if (ctrl.scrollController.hasClients) ctrl.scrollController.jumpTo(0);
     }
     // Trigger interstitial every N chapters
     AdService.instance.onChapterRead();
@@ -1492,6 +1502,76 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         }
         return ok;
       },
+    );
+  }
+
+  /// Open a chapter from the Contents list, prompting to unlock if locked.
+  Future<void> _openChapter(int number, String title) async {
+    ctrl.hideAllControls();
+    final slug = widget.storySlug;
+    if (slug == null) return;
+    await ctrl.loadChapter(slug, number, title);
+    // A newer tap may have replaced this load — only prompt for the chapter
+    // that is actually on screen.
+    if (!mounted || ctrl.currentChapterNumber.value != number) return;
+    if (ctrl.isCurrentChapterLocked.value) _showCurrentChapterLockedModal();
+  }
+
+  /// Shown in place of the text while the current chapter is locked, so the
+  /// page is never blank if the unlock sheet is closed or hasn't opened yet.
+  Widget _lockedChapterCard() {
+    final cost = ctrl.lockedChapterCoinCost.value;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 24, bottom: 40),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
+      decoration: BoxDecoration(
+        color: ctrl.currentTextColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: ctrl.currentTextColor.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.lock_outline, size: 40, color: depperBlue),
+          const SizedBox(height: 14),
+          Text(
+            'This chapter is locked',
+            style: TextStyle(
+              color: ctrl.currentTextColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            cost > 0
+                ? 'Unlock it for $cost coins, with VIP, or by watching an ad.'
+                : 'Unlock it with coins, VIP, or by watching an ad.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: ctrl.currentTextColor.withValues(alpha: 0.7),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 46,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: depperBlue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(23),
+                ),
+              ),
+              onPressed: _showCurrentChapterLockedModal,
+              icon: const Icon(Icons.lock_open_rounded, size: 18),
+              label: const Text('Unlock chapter'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2445,6 +2525,9 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
         ),
         const SizedBox(height: 20),
         // Body
+        if (ctrl.isCurrentChapterLocked.value && !ctrl.isLoadingChapter.value)
+          _lockedChapterCard()
+        else
         // Cleaned so the reader's colours / size / spacing always apply
         HtmlWidget(
           content.isNotEmpty ? _cleanHtml(content) : 'Loading...',
@@ -3387,23 +3470,34 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                                 ),
                               ),
                               trailing:
-                                  ch.isRead
+                                  ch.locked
+                                      ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (ch.coinCost > 0)
+                                            Text(
+                                              '${ch.coinCost}',
+                                              style: TextStyle(
+                                                color: Colors.grey[500],
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.lock_outline,
+                                            color: Colors.grey[500],
+                                            size: 16,
+                                          ),
+                                        ],
+                                      )
+                                      : ch.isRead
                                       ? const Icon(
                                         Icons.check_circle,
                                         color: Colors.green,
                                         size: 16,
                                       )
                                       : null,
-                              onTap: () {
-                                ctrl.hideAllControls();
-                                if (widget.storySlug != null) {
-                                  ctrl.loadChapter(
-                                    widget.storySlug!,
-                                    ch.number,
-                                    ch.title,
-                                  );
-                                }
-                              },
+                              onTap: () => _openChapter(ch.number, ch.title),
                             );
                           },
                         ),

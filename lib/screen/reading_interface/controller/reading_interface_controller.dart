@@ -219,15 +219,21 @@ class ReadingInterfaceController extends GetxController {
     }
     chapterList.value = all;
     totalChapters.value = all.length;
-    chapters.clear();
-    for (final c in all) {
-      chapters.add(
+    _rebuildChapters();
+  }
+
+  /// Contents-list entries, derived from [chapterList] so lock state stays in
+  /// step after an unlock.
+  void _rebuildChapters() {
+    chapters.value = [
+      for (final (i, c) in chapterList.indexed)
         Chapter(
           c['title'] ?? 'Chapter ${c['chapter_number']}',
-          number: (c['chapter_number'] as num?)?.toInt() ?? chapters.length + 1,
+          number: (c['chapter_number'] as num?)?.toInt() ?? i + 1,
+          locked: c['is_locked'] == true && c['is_unlocked'] != true,
+          coinCost: (c['coin_cost'] as num?)?.toInt() ?? 0,
         ),
-      );
-    }
+    ];
   }
 
   // ── Load a specific chapter ───────────────────────────────────────────────
@@ -336,6 +342,7 @@ class ReadingInterfaceController extends GetxController {
         final updated = Map.from(chapterList[idx] as Map);
         updated['is_locked'] = false;
         chapterList[idx] = updated;
+        _rebuildChapters();
       }
       isNextChapterLocked.value = false;
       Get.find<AuthController>().refreshCoins();
@@ -358,6 +365,7 @@ class ReadingInterfaceController extends GetxController {
         final updated = Map.from(chapterList[idx] as Map);
         updated['is_locked'] = false;
         chapterList[idx] = updated;
+        _rebuildChapters();
       }
       isCurrentChapterLocked.value = false;
       Get.find<AuthController>().refreshCoins();
@@ -518,5 +526,15 @@ class Chapter {
   final String title;
   final int number;
   final bool isRead;
-  Chapter(this.title, {required this.number, this.isRead = false});
+
+  /// Locked for this reader (not bought, not VIP, not the author)
+  final bool locked;
+  final int coinCost;
+  Chapter(
+    this.title, {
+    required this.number,
+    this.isRead = false,
+    this.locked = false,
+    this.coinCost = 0,
+  });
 }

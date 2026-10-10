@@ -80,6 +80,13 @@ class MeScreen extends StatelessWidget {
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
+  String _formatDateTime(DateTime date) {
+    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour < 12 ? 'AM' : 'PM';
+    return '${_formatDate(date)}, $hour:$minute $period';
+  }
+
   Widget _vipPlanChip(String label, String subId) {
     final active = subId == IAPService.to.activeSubId.value;
     return Container(
@@ -183,6 +190,13 @@ class MeScreen extends StatelessWidget {
             child: Obx(() {
               final isLoggedIn = auth.isLoggedIn.value;
               final avatar = auth.avatar;
+              // A plan only applies while the store reports that subscription
+              // active. VIP redeemed with coins has no plan, so it shows as
+              // plain VIP with the backend's real expiry.
+              final planSubId = iap.isVip.value ? iap.activeSubId.value : '';
+              final hasPlan = planSubId.isNotEmpty;
+              final vipEnds =
+                  DateTime.tryParse(auth.vipExpires ?? '')?.toLocal();
 
               return Column(
                 children: [
@@ -251,12 +265,12 @@ class MeScreen extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     color:
                                         planBadgeFor(
-                                          iap.activeSubId.value,
+                                          planSubId,
                                         ).color,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    planBadgeFor(iap.activeSubId.value).icon,
+                                    planBadgeFor(planSubId).icon,
                                     color: Colors.white,
                                     size: 10,
                                   ),
@@ -401,7 +415,7 @@ class MeScreen extends StatelessWidget {
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
                                           color: planBadgeFor(
-                                            iap.activeSubId.value,
+                                            planSubId,
                                           ).color.withOpacity(0.14),
                                           borderRadius: BorderRadius.circular(
                                             10,
@@ -409,11 +423,11 @@ class MeScreen extends StatelessWidget {
                                         ),
                                         child: Icon(
                                           planBadgeFor(
-                                            iap.activeSubId.value,
+                                            planSubId,
                                           ).icon,
                                           color:
                                               planBadgeFor(
-                                                iap.activeSubId.value,
+                                                planSubId,
                                               ).color,
                                           size: 20,
                                         ),
@@ -433,7 +447,7 @@ class MeScreen extends StatelessWidget {
                                               ),
                                             ),
                                             Text(
-                                              'You are enjoying ${_planDisplayName(iap.activeSubId.value)} access',
+                                              'You are enjoying ${_planDisplayName(planSubId)} access',
                                               style: TextStyle(
                                                 color: sub,
                                                 fontSize: 12,
@@ -481,52 +495,54 @@ class MeScreen extends StatelessWidget {
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _vipPlanChip('Weekly', kSubWeekly),
-                                      _vipPlanChip('Monthly', kSubMonthly),
-                                      _vipPlanChip('Quarterly', kSubQuarterly),
-                                      _vipPlanChip('Yearly', kSubYearly),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
+                                  if (hasPlan) ...[
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        _vipPlanChip('Weekly', kSubWeekly),
+                                        _vipPlanChip('Monthly', kSubMonthly),
+                                        _vipPlanChip('Quarterly', kSubQuarterly),
+                                        _vipPlanChip('Yearly', kSubYearly),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
                                   Row(
                                     children: [
                                       _vipPlanStat(
                                         'Plan',
-                                        _planDisplayName(iap.activeSubId.value),
+                                        hasPlan
+                                            ? _planDisplayName(planSubId)
+                                            : 'Coin VIP',
                                         Icons.card_membership,
                                         Colors.orangeAccent,
                                       ),
-                                      const SizedBox(width: 8),
-                                      _vipPlanStat(
-                                        'Starts',
-                                        _formatDate(
-                                          DateTime.now().subtract(
-                                            Duration(
-                                              days: _planDurationDays(
-                                                iap.activeSubId.value,
+                                      if (hasPlan) ...[
+                                        const SizedBox(width: 8),
+                                        _vipPlanStat(
+                                          'Starts',
+                                          _formatDate(
+                                            (vipEnds ?? DateTime.now()).subtract(
+                                              Duration(
+                                                days: _planDurationDays(
+                                                  planSubId,
+                                                ),
                                               ),
                                             ),
                                           ),
+                                          Icons.calendar_today,
+                                          Colors.amberAccent,
                                         ),
-                                        Icons.calendar_today,
-                                        Colors.amberAccent,
-                                      ),
+                                      ],
                                       const SizedBox(width: 8),
                                       _vipPlanStat(
                                         'Ends',
-                                        _formatDate(
-                                          DateTime.now().add(
-                                            Duration(
-                                              days: _planDurationDays(
-                                                iap.activeSubId.value,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                        vipEnds == null
+                                            ? '—'
+                                            : hasPlan
+                                            ? _formatDate(vipEnds)
+                                            : _formatDateTime(vipEnds),
                                         Icons.event_available,
                                         Colors.lightBlueAccent,
                                       ),
@@ -537,7 +553,9 @@ class MeScreen extends StatelessWidget {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          'Subscription automatically renews until cancelled.',
+                                          hasPlan
+                                              ? 'Subscription automatically renews until cancelled.'
+                                              : 'Redeemed with coins. Does not renew.',
                                           style: TextStyle(
                                             color: sub,
                                             fontSize: 11,
