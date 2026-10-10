@@ -45,3 +45,6 @@ app.*.map.json
 /android/app/release
 
 # https://novelux-1a13a.firebaseapp.com/__/auth/handler
+
+# Design exports (Figma JSON) — reference only, not app source
+huxnovel---*.json

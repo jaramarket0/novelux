@@ -87,77 +87,6 @@ class MeScreen extends StatelessWidget {
     return '${_formatDate(date)}, $hour:$minute $period';
   }
 
-  Widget _vipPlanChip(String label, String subId) {
-    final active = subId == IAPService.to.activeSubId.value;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color:
-            active
-                ? Colors.orange.withOpacity(0.18)
-                : Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color:
-              active
-                  ? Colors.orange.withOpacity(0.35)
-                  : Colors.white.withOpacity(0.12),
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? Colors.orangeAccent : Colors.white70,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  Widget _vipPlanStat(String label, String value, IconData icon, Color tint) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: tint.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: tint.withOpacity(0.18)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: tint, size: 15),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: tint,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = Get.find<AuthController>();
@@ -168,896 +97,216 @@ class MeScreen extends StatelessWidget {
     return AnimatedBuilder(
       animation: theme,
       builder: (_, __) {
-        final isDark = Theme.of(context).brightness == Brightness.dark;
-        final bg = isDark ? const Color(0xFF0d0d0f) : const Color(0xFFF2F2F7);
-        final cardBg =
-            isDark ? const Color.fromARGB(255, 33, 35, 36) : Colors.white;
-        final surfaceAlt =
-            isDark ? const Color(0xFF17191D) : const Color(0xFFF7F8FC);
-        final borderClr =
-            isDark
-                ? Colors.white.withOpacity(0.08)
-                : Colors.black.withOpacity(0.06);
-        final txt = isDark ? Colors.white : const Color(0xFF1a1a1a);
-        final sub = isDark ? Colors.grey[400]! : Colors.grey[600]!;
-        final divClr = isDark ? const Color(0xFF2a2a2a) : Colors.grey[200]!;
-        final accent = depperBlue;
+        final p = _MePalette.of(context);
 
         return Scaffold(
-          backgroundColor: bg,
+          backgroundColor: p.bg,
           body: SafeArea(
             bottom: false,
             child: Obx(() {
               final isLoggedIn = auth.isLoggedIn.value;
-              final avatar = auth.avatar;
-              // A plan only applies while the store reports that subscription
-              // active. VIP redeemed with coins has no plan, so it shows as
-              // plain VIP with the backend's real expiry.
-              final planSubId = iap.isVip.value ? iap.activeSubId.value : '';
-              final hasPlan = planSubId.isNotEmpty;
-              final vipEnds =
-                  DateTime.tryParse(auth.vipExpires ?? '')?.toLocal();
 
-              return Column(
+              return ListView(
+                // Clears the floating bottom nav bar
+                padding: EdgeInsets.only(
+                  bottom: 100 + MediaQuery.paddingOf(context).bottom,
+                ),
                 children: [
-                  // ── Profile header ────────────────────────────────────────
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF17191D) : Colors.white,
-                      border: Border(
-                        bottom: BorderSide(color: borderClr, width: 1),
-                      ),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                  // ── Page header ──────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                     child: Row(
                       children: [
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Gold laurel wreath behind avatar for VIP users
-                            if (auth.isVip)
-                              CustomPaint(
-                                size: const Size(84, 84),
-                                painter: _LaurelWreathPainter(),
-                              ),
-                            CircleAvatar(
-                              radius: 32,
-                              backgroundColor: depperBlue,
-                              child:
-                                  (avatar != null && avatar.isNotEmpty)
-                                      ? ClipOval(
-                                        child: CachedNetworkImage(
-                                          imageUrl: _resolveAvatarUrl(avatar),
-                                          width: 64,
-                                          height: 64,
-                                          fit: BoxFit.cover,
-                                          errorWidget:
-                                              (_, __, ___) => Text(
-                                                auth.username.isNotEmpty
-                                                    ? auth.username[0]
-                                                        .toUpperCase()
-                                                    : '?',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                        ),
-                                      )
-                                      : Text(
-                                        isLoggedIn && auth.username.isNotEmpty
-                                            ? auth.username[0].toUpperCase()
-                                            : '?',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                            ),
-                            if (auth.isVip)
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        planBadgeFor(
-                                          planSubId,
-                                        ).color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    planBadgeFor(planSubId).icon,
-                                    color: Colors.white,
-                                    size: 10,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isLoggedIn ? auth.username : 'Guest User',
-                                style: TextStyle(
-                                  color: txt,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (isLoggedIn) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  auth.email,
-                                  style: TextStyle(color: sub, fontSize: 12),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.monetization_on,
-                                      color: Colors.orange,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${auth.coins} coins',
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: depperBlue.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        'Lv.${auth.readingLevel}',
-                                        style: TextStyle(
-                                          color: depperBlue,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
+                        // Brand mark: the "H" on Android, the rust "N" on iOS
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(
+                            AppConstants.logoAsset,
+                            width: 36,
+                            height: 36,
+                            cacheWidth: 108,
+                            fit: BoxFit.cover,
                           ),
                         ),
-                        if (!isLoggedIn)
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: depperBlue,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                            ),
-                            onPressed: () => Get.to(() => const LoginScreen()),
-                            child: const Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
+                        const Spacer(),
+                        Text(
+                          AppConstants.appName,
+                          style: TextStyle(
+                            color: p.accent,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                           ),
+                        ),
                       ],
                     ),
                   ),
 
-                  // the banner is too far up, it should be next up on the button nav bar,
-
-                  // and as well the banner vertical height should not be the same as the image, the image should be stacked on top, while the banner should have height that's only sufficent to wrap the content,
-
-                  // note the arrangement as it is is ok, just make that minor modifications.
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.only(bottom: 90),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 12),
-
-                        // ── VIP Banner ──────────────────────────────────────────
-                        if (auth.isVip)
-                          GestureDetector(
-                            onTap: () => Get.to(() => const VipScreen()),
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    isDark
-                                        ? const Color(0xFF1B2740)
-                                        : const Color(0xFFEEF4FF),
-                                    isDark
-                                        ? const Color(0xFF131B2C)
-                                        : const Color(0xFFF7F9FD),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: borderClr),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: planBadgeFor(
-                                            planSubId,
-                                          ).color.withOpacity(0.14),
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          planBadgeFor(
-                                            planSubId,
-                                          ).icon,
-                                          color:
-                                              planBadgeFor(
-                                                planSubId,
-                                              ).color,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'VIP Active',
-                                              style: TextStyle(
-                                                color: txt,
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            Text(
-                                              'You are enjoying ${_planDisplayName(planSubId)} access',
-                                              style: TextStyle(
-                                                color: sub,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.16),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.green.withOpacity(
-                                              0.25,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: Colors.greenAccent,
-                                              size: 13,
-                                            ),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              'Active',
-                                              style: TextStyle(
-                                                color: Colors.greenAccent,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  if (hasPlan) ...[
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        _vipPlanChip('Weekly', kSubWeekly),
-                                        _vipPlanChip('Monthly', kSubMonthly),
-                                        _vipPlanChip('Quarterly', kSubQuarterly),
-                                        _vipPlanChip('Yearly', kSubYearly),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  Row(
-                                    children: [
-                                      _vipPlanStat(
-                                        'Plan',
-                                        hasPlan
-                                            ? _planDisplayName(planSubId)
-                                            : 'Coin VIP',
-                                        Icons.card_membership,
-                                        Colors.orangeAccent,
-                                      ),
-                                      if (hasPlan) ...[
-                                        const SizedBox(width: 8),
-                                        _vipPlanStat(
-                                          'Starts',
-                                          _formatDate(
-                                            (vipEnds ?? DateTime.now()).subtract(
-                                              Duration(
-                                                days: _planDurationDays(
-                                                  planSubId,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Icons.calendar_today,
-                                          Colors.amberAccent,
-                                        ),
-                                      ],
-                                      const SizedBox(width: 8),
-                                      _vipPlanStat(
-                                        'Ends',
-                                        vipEnds == null
-                                            ? '—'
-                                            : hasPlan
-                                            ? _formatDate(vipEnds)
-                                            : _formatDateTime(vipEnds),
-                                        Icons.event_available,
-                                        Colors.lightBlueAccent,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          hasPlan
-                                              ? 'Subscription automatically renews until cancelled.'
-                                              : 'Redeemed with coins. Does not renew.',
-                                          style: TextStyle(
-                                            color: sub,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons.chevron_right,
-                                        color: sub,
-                                        size: 18,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          GestureDetector(
-                            onTap: () => Get.to(() => const VipScreen()),
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    isDark
-                                        ? const Color(0xFF1B2740)
-                                        : const Color(0xFFEEF4FF),
-                                    isDark
-                                        ? const Color(0xFF131B2C)
-                                        : const Color(0xFFF7F9FD),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(14),
-                                ),
-                                border: Border.all(color: borderClr),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 14,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: accent.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      Icons.diamond_outlined,
-                                      color: accent,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'VIP',
-                                    style: TextStyle(
-                                      color: txt,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF3d2800),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.orange.withOpacity(0.4),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Subscribe',
-                                          style: TextStyle(
-                                            color: accent,
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.chevron_right,
-                                          color: accent,
-                                          size: 16,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        // VIP perks
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: surfaceAlt,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(14),
-                            ),
-                            border: Border.all(color: borderClr),
-                          ),
-                          child: Row(
-                            children: [
-                              _vipPerk(
-                                Icons.menu_book_outlined,
-                                'Ad-Free',
-                                accent,
-                              ),
-                              const SizedBox(width: 20),
-                              _vipPerk(
-                                Icons.download_outlined,
-                                'Offline',
-                                accent,
-                              ),
-                              const SizedBox(width: 20),
-                              _vipPerk(
-                                Icons.headphones_outlined,
-                                'Audio',
-                                accent,
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // ── Rewards Center ────────────────────────────────────────
-                        GestureDetector(
-                          onTap: () => Get.to(() => const RewardsScreen()),
-                          child: Container(
-                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cardBg,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: borderClr),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(
-                                    Icons.star_rounded,
-                                    color: Colors.orange,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Rewards Center',
-                                        style: TextStyle(
-                                          color: txt,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        'Earn coins daily • Unlock chapters free',
-                                        style: TextStyle(
-                                          color: sub,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Obx(
-                                  () => Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF3d2800),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${auth.coins} 🪙',
-                                      style: const TextStyle(
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(Icons.chevron_right, color: sub, size: 18),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cardBg,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: borderClr),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: _item(
-                            txt,
-                            sub,
-                            LucideIcons.coins500,
+                        // ── Profile, membership, coins ─────────────────────
+                        _identity(auth, iap, p, isLoggedIn),
+                        const SizedBox(height: 20),
+                        _vipCard(auth, iap, p),
+                        const SizedBox(height: 20),
+                        _card(p, [
+                          _rewardsRow(auth, p),
+                          _row(
+                            p,
+                            LucideIcons.wallet,
                             'Coin Store',
-                            Colors.orange,
-                            () {
-                              Get.to(() => CoinStoreScreen());
-                            },
+                            () => Get.to(() => CoinStoreScreen()),
+                            iconColor: p.accent,
+                            iconBox: true,
                           ),
-                        ),
-                        Divider(
-                          height: 1,
-                          indent: 16,
-                          endIndent: 16,
-                          color: divClr,
-                        ),
-                        const SizedBox(height: 12),
+                        ]),
 
-                        // ── Reading Preferences ───────────────────────────────────
+                        // ── Your reading ───────────────────────────────────
+                        const SizedBox(height: 28),
+                        _heading('Your reading', p),
                         if (isLoggedIn) ...[
-                          _PreferencesCard(
-                            cardBg: cardBg,
-                            txt: txt,
-                            sub: sub,
-                            divClr: divClr,
-                          ),
+                          _PreferencesCard(palette: p),
                           const SizedBox(height: 12),
                         ],
-
-                        // ── Main menu ─────────────────────────────────────────────
-                        _section(cardBg, [
-                          _item(
-                            txt,
-                            sub,
-                            Icons.timelapse_rounded,
+                        _card(p, [
+                          _row(
+                            p,
+                            LucideIcons.history,
                             'History',
-                            Colors.lightBlueAccent,
                             () => Get.to(
                               () => const LibraryScreen(),
                               arguments: {'value': 1, 'isProfile': true},
                             ),
                           ),
-                          _divider(divClr),
-                          _item(
-                            txt,
-                            sub,
-                            Icons.download_outlined,
+                          _row(
+                            p,
+                            LucideIcons.download,
                             'Downloads',
-                            Colors.blue,
                             () => Get.to(() => const DownloadScreen()),
                           ),
-                          _divider(divClr),
-                          _item(
-                            txt,
-                            sub,
-                            Icons.schedule_rounded,
+                          _row(
+                            p,
+                            LucideIcons.clock3,
                             'Reading Schedule',
-                            Colors.teal,
                             () => Get.to(() => const ReadingScheduleScreen()),
                           ),
                         ]),
-                        const SizedBox(height: 12),
 
-                        // ── Display Mode ─────────────────────────────────────────
-                        _section(cardBg, [
-                          ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.purple.withOpacity(0.18),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.dark_mode,
-                                color: Colors.purple,
-                                size: 18,
-                              ),
-                            ),
-                            title: Text(
-                              'Display Mode',
-                              style: TextStyle(color: txt, fontSize: 13),
-                            ),
-                            trailing: Obx(
-                              () => DropdownButton<ThemeMode>(
-                                value: theme.themeMode,
-                                underline: const SizedBox.shrink(),
-                                dropdownColor:
-                                    isDark
-                                        ? const Color(0xFF2a2a2a)
-                                        : Colors.white,
-                                icon: Icon(
-                                  Icons.arrow_drop_down,
-                                  color: sub,
-                                  size: 18,
-                                ),
-                                items: [
-                                  _themeItem(
-                                    ThemeMode.system,
-                                    'System',
-                                    Icons.settings_suggest,
-                                    txt,
-                                  ),
-                                  _themeItem(
-                                    ThemeMode.dark,
-                                    'Dark',
-                                    Icons.dark_mode,
-                                    txt,
-                                  ),
-                                  _themeItem(
-                                    ThemeMode.light,
-                                    'Light',
-                                    Icons.light_mode,
-                                    txt,
-                                  ),
-                                ],
-                                onChanged: (v) {
-                                  if (v != null) theme.setThemeMode(v);
-                                },
-                              ),
-                            ),
-                          ),
-                        ]),
-                        const SizedBox(height: 12),
-
-                        // ── Notifications ─────────────────────────────────────────
-                        _section(cardBg, [
+                        // ── App settings ───────────────────────────────────
+                        const SizedBox(height: 28),
+                        _heading('App settings', p),
+                        _card(p, [
+                          _displayModeRow(theme, p),
                           Obx(
-                            () => _item(
-                              txt,
-                              sub,
-                              Icons.notifications_outlined,
+                            () => _row(
+                              p,
+                              LucideIcons.bell,
                               'Notifications',
-                              Colors.orange,
                               () {
                                 Get.put(NotificationController());
                                 Get.to(() => const NotificationScreen());
                               },
-                              badge:
-                                  ctrl.unreadCount.value > 0
-                                      ? '${ctrl.unreadCount.value}'
-                                      : null,
+                              count: ctrl.unreadCount.value,
                             ),
                           ),
                         ]),
-                        const SizedBox(height: 12),
 
-                        // ── Author / CE / About ───────────────────────────────────
-                        _section(cardBg, [
+                        // ── Community & support ────────────────────────────
+                        const SizedBox(height: 24),
+                        _heading('Community & support', p),
+                        _card(p, [
                           if (isLoggedIn && auth.role == 'ce')
-                            _item(
-                              txt,
-                              sub,
-                              Icons.menu_book_outlined,
+                            _row(
+                              p,
+                              LucideIcons.bookMarked,
                               'Manage Stories',
-                              Colors.indigo,
                               () => Get.to(() => const CeBooksScreen()),
                             ),
                           if (isLoggedIn && auth.isAuthor)
-                            _item(
-                              txt,
-                              sub,
-                              Icons.dashboard_outlined,
+                            _row(
+                              p,
+                              LucideIcons.layoutDashboard,
                               'Author Dashboard',
-                              Colors.teal,
                               () => Get.to(() => const AuthorDashboardScreen()),
                             )
-                          else if (isLoggedIn &&
-                              auth.role != 'ce' &&
-                              !auth.isAuthor)
-                            _item(
-                              txt,
-                              sub,
-                              Icons.edit_outlined,
+                          else if (isLoggedIn && auth.role != 'ce')
+                            _row(
+                              p,
+                              LucideIcons.penLine,
                               'Become an Author',
-                              Colors.lightBlue,
                               () => _becomeAuthorDialog(ctrl),
                             )
                           else if (!isLoggedIn)
-                            _item(
-                              txt,
-                              sub,
-                              Icons.login,
+                            _row(
+                              p,
+                              LucideIcons.penLine,
                               'Sign In to Write',
-                              Colors.lightBlue,
                               () => Get.to(() => const LoginScreen()),
                             ),
-                          _divider(divClr),
-                          _item(
-                            txt,
-                            sub,
-                            Icons.info_outline,
+                          _row(
+                            p,
+                            LucideIcons.info,
                             'About ${AppConstants.appName}',
-                            Colors.amber,
                             () => Get.to(() => AboutScreen()),
                           ),
-                          _divider(divClr),
-                          _item(
-                            txt,
-                            sub,
-                            Icons.help_outline,
+                          _row(
+                            p,
+                            LucideIcons.circleHelp,
                             'Help & Feedback',
-                            Colors.orange,
-                            () {
-                              Get.to(
-                                () => AtomicWebViewScreen(
-                                  url: 'https://novelux.onrender.com/faq/',
-                                ),
-                              );
-                            },
+                            () => Get.to(
+                              () => AtomicWebViewScreen(
+                                url: 'https://novelux.onrender.com/faq/',
+                              ),
+                            ),
                           ),
                           if (isLoggedIn) ...[
-                            _divider(divClr),
                             Obx(
-                              () => _item(
-                                txt,
-                                sub,
-                                Icons.shield_outlined,
+                              () => _row(
+                                p,
+                                LucideIcons.shieldCheck,
                                 'Content & Parental Controls',
-                                Colors.teal,
                                 () => _parentalControlsDialog(auth),
-                                badge:
+                                tag:
                                     auth.currentUser.value?['restricted_mode_enabled'] ==
                                             true
                                         ? 'ON'
                                         : null,
                               ),
                             ),
-                            _divider(divClr),
-                            _item(
-                              txt,
-                              sub,
-                              Icons.logout,
+                          ],
+                        ]),
+
+                        // ── Account ────────────────────────────────────────
+                        const SizedBox(height: 24),
+                        _heading('Account', p),
+                        _card(p, [
+                          if (isLoggedIn) ...[
+                            _row(
+                              p,
+                              LucideIcons.logOut,
                               'Sign Out',
-                              Colors.red,
                               () => _signOutDialog(auth),
                             ),
-                            _divider(divClr),
-                            _item(
-                              txt,
-                              sub,
-                              Icons.delete_forever_outlined,
+                            _row(
+                              p,
+                              LucideIcons.trash2,
                               'Delete Account',
-                              Colors.red,
                               () => _deleteAccountDialog(auth),
+                              destructive: true,
                             ),
-                          ],
-                          if (!isLoggedIn) ...[
-                            _divider(divClr),
-                            _item(
-                              txt,
-                              sub,
-                              Icons.person_add_outlined,
+                          ] else ...[
+                            _row(
+                              p,
+                              LucideIcons.logIn,
+                              'Sign In',
+                              () => Get.to(() => const LoginScreen()),
+                            ),
+                            _row(
+                              p,
+                              LucideIcons.userPlus,
                               'Create Account',
-                              Colors.green,
                               () => Get.to(() => const RegisterScreen()),
                             ),
                           ],
@@ -1074,97 +323,636 @@ class MeScreen extends StatelessWidget {
     );
   }
 
-  DropdownMenuItem<ThemeMode> _themeItem(
-    ThemeMode mode,
-    String label,
-    IconData icon,
-    Color txt,
-  ) => DropdownMenuItem(
-    value: mode,
-    child: Row(
-      children: [
-        Icon(icon, size: 14, color: txt),
-        const SizedBox(width: 6),
-        Text(label, style: TextStyle(color: txt, fontSize: 12)),
-      ],
-    ),
-  );
+  // ── Identity: avatar, name, email, coins, level ─────────────────────────────
+  Widget _identity(
+    AuthController auth,
+    IAPService iap,
+    _MePalette p,
+    bool isLoggedIn,
+  ) {
+    final avatar = auth.avatar;
+    final planSubId = iap.isVip.value ? iap.activeSubId.value : '';
+    final initial =
+        isLoggedIn && auth.username.isNotEmpty
+            ? auth.username[0].toUpperCase()
+            : '?';
+    final initialText = Text(
+      initial,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
+      ),
+    );
 
-  Widget _vipPerk(IconData icon, String label, Color tint) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, color: tint, size: 14),
-      const SizedBox(width: 4),
-      Text(
+    return Row(
+      children: [
+        Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            // Gold laurel wreath behind the avatar for VIP readers
+            if (auth.isVip)
+              CustomPaint(
+                size: const Size(80, 80),
+                painter: _LaurelWreathPainter(),
+              ),
+            Container(
+              width: 60,
+              height: 60,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: p.primary,
+                shape: BoxShape.circle,
+              ),
+              child:
+                  (avatar != null && avatar.isNotEmpty)
+                      ? ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: _resolveAvatarUrl(avatar),
+                          width: 60,
+                          height: 60,
+                          memCacheWidth: 180,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => initialText,
+                        ),
+                      )
+                      : initialText,
+            ),
+            if (auth.isVip)
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: planBadgeFor(planSubId).color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: p.bg, width: 2),
+                  ),
+                  child: Icon(
+                    planBadgeFor(planSubId).icon,
+                    color: Colors.white,
+                    size: 10,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isLoggedIn ? auth.username : 'Guest User',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: p.title,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 5),
+              if (isLoggedIn) ...[
+                Text(
+                  auth.email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: p.secondary, fontSize: 12),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    Icon(LucideIcons.circleDollarSign, color: p.accent, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${auth.coins} coins',
+                      style: TextStyle(
+                        color: p.accent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: p.chip,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Lv.${auth.readingLevel}',
+                        style: TextStyle(
+                          color: p.secondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else
+                Text(
+                  'Sign in to sync your library and coins',
+                  style: TextStyle(color: p.secondary, fontSize: 12),
+                ),
+            ],
+          ),
+        ),
+        if (!isLoggedIn)
+          _pillButton(p, 'Sign In', () => Get.to(() => const LoginScreen())),
+      ],
+    );
+  }
+
+  // ── VIP membership card ─────────────────────────────────────────────────────
+  Widget _vipCard(AuthController auth, IAPService iap, _MePalette p) {
+    // A plan only applies while the store reports that subscription active.
+    // VIP redeemed with coins has no plan, so it shows as plain VIP with the
+    // backend's real expiry.
+    final planSubId = iap.isVip.value ? iap.activeSubId.value : '';
+    final hasPlan = planSubId.isNotEmpty;
+    final vipEnds = DateTime.tryParse(auth.vipExpires ?? '')?.toLocal();
+    final isVip = auth.isVip;
+
+    return GestureDetector(
+      onTap: () => Get.to(() => const VipScreen()),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: p.vipBg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: p.vipBorder),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(LucideIcons.gem, color: p.gold, size: 20),
+                          const SizedBox(width: 7),
+                          Text(
+                            isVip ? 'VIP Active' : 'VIP',
+                            style: TextStyle(
+                              color: p.title,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        isVip
+                            ? 'You are enjoying ${_planDisplayName(planSubId)} access'
+                            : 'More stories. No interruptions.',
+                        style: TextStyle(color: p.secondary, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                if (isVip)
+                  Icon(LucideIcons.chevronRight, color: p.secondary, size: 16)
+                else
+                  _pillButton(
+                    p,
+                    'Subscribe',
+                    () => Get.to(() => const VipScreen()),
+                    chevron: true,
+                  ),
+              ],
+            ),
+            if (isVip) ...[
+              if (hasPlan) ...[
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _vipPlanChip(p, 'Weekly', kSubWeekly),
+                    _vipPlanChip(p, 'Monthly', kSubMonthly),
+                    _vipPlanChip(p, 'Quarterly', kSubQuarterly),
+                    _vipPlanChip(p, 'Yearly', kSubYearly),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _vipPlanStat(
+                    p,
+                    'Plan',
+                    hasPlan ? _planDisplayName(planSubId) : 'Coin VIP',
+                  ),
+                  if (hasPlan) ...[
+                    const SizedBox(width: 8),
+                    _vipPlanStat(
+                      p,
+                      'Starts',
+                      _formatDate(
+                        (vipEnds ?? DateTime.now()).subtract(
+                          Duration(days: _planDurationDays(planSubId)),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  _vipPlanStat(
+                    p,
+                    'Ends',
+                    vipEnds == null
+                        ? '—'
+                        : hasPlan
+                        ? _formatDate(vipEnds)
+                        : _formatDateTime(vipEnds),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                hasPlan
+                    ? 'Subscription automatically renews until cancelled.'
+                    : 'Redeemed with coins. Does not renew.',
+                style: TextStyle(color: p.muted, fontSize: 11),
+              ),
+            ] else ...[
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _vipPerk(p, LucideIcons.bookOpen, 'Ad-Free'),
+                  _vipPerk(p, LucideIcons.download, 'Offline'),
+                  _vipPerk(p, LucideIcons.headphones, 'Audio'),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _vipPlanChip(_MePalette p, String label, String subId) {
+    final active = subId == IAPService.to.activeSubId.value;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? p.primary : p.chip,
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: active ? p.primary : p.chipBorder),
+      ),
+      child: Text(
         label,
         style: TextStyle(
-          color: tint,
+          color: active ? Colors.white : p.secondary,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
       ),
+    );
+  }
+
+  Widget _vipPlanStat(_MePalette p, String label, String value) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: p.chip,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: p.muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: p.title,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _vipPerk(_MePalette p, IconData icon, String label) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, color: p.gold, size: 15),
+      const SizedBox(width: 6),
+      Text(label, style: TextStyle(color: p.secondary, fontSize: 12)),
     ],
   );
 
-  Widget _section(Color bg, List<Widget> items) => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 16),
-    decoration: BoxDecoration(
-      color: bg,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.black.withOpacity(0.04)),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.03),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    ),
-    child: Column(children: items),
-  );
-
-  Widget _divider(Color color) =>
-      Divider(height: 1, indent: 54, endIndent: 16, color: color);
-
-  Widget _item(
-    Color txt,
-    Color sub,
-    IconData icon,
-    String label,
-    Color color,
-    VoidCallback onTap, {
-    String? badge,
-  }) => ListTile(
-    leading: Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: color, size: 18),
-    ),
-    title: Text(label, style: TextStyle(color: txt, fontSize: 13)),
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (badge != null)
+  // ── Rewards Center row ──────────────────────────────────────────────────────
+  Widget _rewardsRow(AuthController auth, _MePalette p) => InkWell(
+    onTap: () => Get.to(() => const RewardsScreen()),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            width: 38,
+            height: 42,
             decoration: BoxDecoration(
-              color: Colors.red,
+              color: p.emblem,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Text(
-              badge,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+            child: Icon(LucideIcons.gift, color: p.accent, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Rewards Center',
+                  style: TextStyle(
+                    color: p.title,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Earn coins daily · Unlock chapters free',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: p.secondary, fontSize: 12),
+                ),
+              ],
             ),
           ),
-        const SizedBox(width: 4),
-        Icon(Icons.arrow_forward_ios, color: sub, size: 12),
-      ],
+          const SizedBox(width: 12),
+          Text(
+            '${auth.coins}',
+            style: TextStyle(
+              color: p.accent,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(LucideIcons.circleDollarSign, color: p.accent, size: 14),
+          const SizedBox(width: 12),
+          Icon(LucideIcons.chevronRight, color: p.secondary, size: 16),
+        ],
+      ),
     ),
-    onTap: onTap,
   );
+
+  // ── Display mode (System / Dark / Light) ────────────────────────────────────
+  Widget _displayModeRow(ThemeController theme, _MePalette p) {
+    const labels = {
+      ThemeMode.system: 'System',
+      ThemeMode.dark: 'Dark',
+      ThemeMode.light: 'Light',
+    };
+    return Obx(
+      () => PopupMenuButton<ThemeMode>(
+        initialValue: theme.themeMode,
+        color: p.card,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        onSelected: theme.setThemeMode,
+        itemBuilder:
+            (_) => [
+              for (final e in labels.entries)
+                PopupMenuItem(
+                  value: e.key,
+                  child: Text(
+                    e.value,
+                    style: TextStyle(
+                      color: p.title,
+                      fontSize: 14,
+                      fontWeight:
+                          e.key == theme.themeMode
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                    ),
+                  ),
+                ),
+            ],
+        child: _rowBody(
+          p,
+          LucideIcons.moon,
+          'Display Mode',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                labels[theme.themeMode] ?? 'System',
+                style: TextStyle(color: p.secondary, fontSize: 13),
+              ),
+              const SizedBox(width: 12),
+              Icon(LucideIcons.chevronDown, color: p.secondary, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Building blocks ─────────────────────────────────────────────────────────
+  Widget _heading(String text, _MePalette p) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: p.muted,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  );
+
+  /// A rounded group of rows, with inset dividers between them.
+  Widget _card(_MePalette p, List<Widget> rows) => Container(
+    clipBehavior: Clip.antiAlias,
+    decoration: BoxDecoration(
+      color: p.card,
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Material(
+      type: MaterialType.transparency,
+      child: Column(
+        children: [
+          for (final (i, row) in rows.indexed) ...[
+            if (i > 0) _divider(p),
+            row,
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _divider(_MePalette p) => Padding(
+    padding: const EdgeInsets.only(left: 54, right: 16),
+    child: Container(height: 1, color: p.divider),
+  );
+
+  Widget _pillButton(
+    _MePalette p,
+    String label,
+    VoidCallback onTap, {
+    bool chevron = false,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+      decoration: BoxDecoration(
+        color: p.primary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (chevron) ...[
+            const SizedBox(width: 6),
+            const Icon(LucideIcons.chevronRight, color: Colors.white, size: 14),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  /// A settings row: icon, label, optional count / tag, chevron.
+  Widget _row(
+    _MePalette p,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    int count = 0,
+    String? tag,
+    bool destructive = false,
+    Color? iconColor,
+    bool iconBox = false,
+  }) => InkWell(
+    onTap: onTap,
+    child: _rowBody(
+      p,
+      icon,
+      label,
+      destructive: destructive,
+      iconColor: iconColor,
+      iconBox: iconBox,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (count > 0)
+            Container(
+              constraints: const BoxConstraints(minWidth: 23),
+              height: 23,
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: p.primary,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (tag != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: p.emblem,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                tag,
+                style: TextStyle(
+                  color: p.accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          if (count > 0 || tag != null) const SizedBox(width: 12),
+          Icon(LucideIcons.chevronRight, color: p.secondary, size: 16),
+        ],
+      ),
+    ),
+  );
+
+  Widget _rowBody(
+    _MePalette p,
+    IconData icon,
+    String label, {
+    required Widget trailing,
+    bool destructive = false,
+    Color? iconColor,
+    bool iconBox = false,
+  }) {
+    final fg = destructive ? p.danger : p.title;
+    final ic = destructive ? p.danger : (iconColor ?? p.secondary);
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: iconBox ? 13 : 16),
+      child: Row(
+        children: [
+          // Coin Store's icon sits in a 38px slot to line up with the
+          // Rewards emblem above it; plain rows use a 20px icon.
+          SizedBox(
+            width: iconBox ? 38 : 20,
+            height: iconBox ? 38 : 20,
+            child: Icon(icon, color: ic, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fg,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          trailing,
+        ],
+      ),
+    );
+  }
 
   void _becomeAuthorDialog(MeController ctrl) {
     Get.dialog(
@@ -1525,13 +1313,8 @@ class MeScreen extends StatelessWidget {
 
 // ── Reading Preferences card ──────────────────────────────────────────────────
 class _PreferencesCard extends StatefulWidget {
-  final Color cardBg, txt, sub, divClr;
-  const _PreferencesCard({
-    required this.cardBg,
-    required this.txt,
-    required this.sub,
-    required this.divClr,
-  });
+  final _MePalette palette;
+  const _PreferencesCard({required this.palette});
 
   @override
   State<_PreferencesCard> createState() => _PreferencesCardState();
@@ -1565,7 +1348,7 @@ class _PreferencesCardState extends State<_PreferencesCard> {
 
   String _slugToLabel(String slug) {
     final found = kAllCategories.where((c) => c['slug'] == slug).firstOrNull;
-    if (found != null) return '${found['emoji']} ${found['label']}';
+    if (found != null) return '${found['label']}';
     return slug
         .replaceAll('-', ' ')
         .split(' ')
@@ -1575,126 +1358,118 @@ class _PreferencesCardState extends State<_PreferencesCard> {
 
   @override
   Widget build(BuildContext context) {
+    final p = widget.palette;
+    final gender =
+        _gender.isEmpty
+            ? ''
+            : _gender
+                .replaceAll('_', ' ')
+                .replaceFirstMapped(RegExp(r'^\w'), (m) => m[0]!.toUpperCase());
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: widget.cardBg,
-        borderRadius: BorderRadius.circular(12),
+        color: p.card,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.pink.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.favorite_outline,
-                    color: Colors.pink,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
+          Row(
+            children: [
+              Icon(LucideIcons.heart, color: p.accent, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   'Reading Preferences',
                   style: TextStyle(
-                    color: widget.txt,
+                    color: p.title,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap:
+                    () => Get.to(
+                      () => const PreferencesScreen(isOnboarding: false),
+                    )?.then((_) => _load()),
+                child: Text(
+                  'Edit',
+                  style: TextStyle(
+                    color: p.accent,
                     fontSize: 13,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap:
-                      () => Get.to(
-                        () => const PreferencesScreen(isOnboarding: false),
-                      )?.then((_) => _load()),
-                  child: Text(
-                    'Edit',
-                    style: TextStyle(
-                      color: depperBlue,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 16),
           if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.orange,
-                  ),
+            Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: p.accent,
                 ),
               ),
             )
           else if (_genres.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Text(
-                'No preferences set yet. Tap Edit to add some.',
-                style: TextStyle(color: widget.sub, fontSize: 12),
-              ),
+            Text(
+              'No preferences set yet. Tap Edit to add some.',
+              style: TextStyle(color: p.secondary, fontSize: 12),
             )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    children:
-                        _genres
-                            .map(
-                              (slug) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: depperBlue.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: depperBlue.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Text(
-                                  _slugToLabel(slug),
-                                  style: TextStyle(
-                                    color: depperBlue,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                  ),
-                  if (_gender.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Gender: ${_gender.replaceAll('_', ' ')}',
-                      style: TextStyle(color: widget.sub, fontSize: 11),
+          else ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final slug in _genres)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: p.chip,
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(color: p.chipBorder),
+                    ),
+                    child: Text(
+                      _slugToLabel(slug),
+                      style: TextStyle(
+                        color: p.secondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (gender.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text(
+                    'Gender:',
+                    style: TextStyle(color: p.muted, fontSize: 12),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    gender,
+                    style: TextStyle(
+                      color: p.secondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
-            ),
+            ],
+          ],
         ],
       ),
     );
@@ -1730,4 +1505,68 @@ class _LaurelWreathPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Me-screen colours. Dark values are the HuxNovel design's; light values are
+/// the same warm palette lightened to match.
+class _MePalette {
+  final Color bg, card, title, secondary, muted, accent, primary, divider;
+  final Color chip, chipBorder, emblem, vipBg, vipBorder, gold, danger;
+
+  const _MePalette({
+    required this.bg,
+    required this.card,
+    required this.title,
+    required this.secondary,
+    required this.muted,
+    required this.accent,
+    required this.primary,
+    required this.divider,
+    required this.chip,
+    required this.chipBorder,
+    required this.emblem,
+    required this.vipBg,
+    required this.vipBorder,
+    required this.gold,
+    required this.danger,
+  });
+
+  static const dark = _MePalette(
+    bg: Color(0xFF171513),
+    card: Color(0xFF24211E),
+    title: Color(0xFFF7F1E9),
+    secondary: Color(0xFFC5BAB0),
+    muted: Color(0xFF9F9287),
+    accent: Color(0xFFEF9B70),
+    primary: Color(0xFFC65D32),
+    divider: Color(0xFF3B332C),
+    chip: Color(0xFF302A25),
+    chipBorder: Color(0xFF3B332C),
+    emblem: Color(0xFF3D281F),
+    vipBg: Color(0xFF35241C),
+    vipBorder: Color(0xFF71422D),
+    gold: Color(0xFFD6B37C),
+    danger: Color(0xFFDD8C7E),
+  );
+
+  static const light = _MePalette(
+    bg: Color(0xFFF7F3EE),
+    card: Color(0xFFFFFFFF),
+    title: Color(0xFF221C17),
+    secondary: Color(0xFF6E6359),
+    muted: Color(0xFF8F8378),
+    accent: Color(0xFFC65D32),
+    primary: Color(0xFFC65D32),
+    divider: Color(0xFFEFE7DF),
+    chip: Color(0xFFF4EDE6),
+    chipBorder: Color(0xFFE9DFD5),
+    emblem: Color(0xFFFBE7DC),
+    vipBg: Color(0xFFFBEDE4),
+    vipBorder: Color(0xFFEFC9B3),
+    gold: Color(0xFFB0823F),
+    danger: Color(0xFFC24E3B),
+  );
+
+  static _MePalette of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
 }
