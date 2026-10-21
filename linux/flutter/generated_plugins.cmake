@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_timezone
+  gtk
   no_screenshot
   url_launcher_linux
 )

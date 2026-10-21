@@ -3,6 +3,7 @@ import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/config/notification_router.dart';
 import 'package:novelux/screen/notification_screen/controller/notifcation_controller.dart';
 
 class NotificationScreen extends GetWidget<NotificationController> {
@@ -151,7 +152,13 @@ class NotificationScreen extends GetWidget<NotificationController> {
                             ),
                           )
                           : null,
-                  onTap: () => controller.markRead(n['id']),
+                  onTap: () {
+                    controller.markRead(n['id']);
+                    final data = n['data'];
+                    if (data is Map) {
+                      NotificationRouter.open(Map<String, dynamic>.from(data));
+                    }
+                  },
                 );
               },
             );

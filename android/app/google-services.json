@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "302060725266-fp33ri4egqsmkq4eg9qj8kpq0elc3pb7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.daniel.huxnovel",
+            "certificate_hash": "028aab35d7f675bc34372292eb049cb855e5d88a"
+          }
+        },
+        {
           "client_id": "302060725266-pu3ql5kg9q4puq6k2inmn52qljf1j35k.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

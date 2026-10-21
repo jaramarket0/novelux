@@ -29,6 +29,22 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Deep links: book and share links open in the app. autoVerify
+                 checks https://<host>/.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"/>
+                <data android:host="www.novelux.app"/>
+                <data android:host="novelux.app"/>
+                <data android:host="novelux.onrender.com"/>
+                <data android:pathPrefix="/explore/"/>
+                <data android:pathPrefix="/story/"/>
+            </intent-filter>
+            <!-- Links are handled by app_links (lib/config/deep_link_service.dart),
+                 not Flutter's built-in route-based deep linking. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false"/>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

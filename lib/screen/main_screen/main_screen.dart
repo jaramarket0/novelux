@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/config/app_update_service.dart';
+import 'package:novelux/config/notification_router.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
 import 'package:novelux/screen/explore/explore_screen.dart';
 import 'package:novelux/screen/genres/genres_screen.dart';
@@ -28,6 +30,12 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _crCtrl = Get.put(ContinueReadingController());
+    // Ask Play / the App Store for a newer version once the home screen is up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService.checkForUpdate();
+      // A push that launched the app (e.g. a new book) opens its target now.
+      NotificationRouter.consumePending();
+    });
   }
 
   void _onTabTapped(int index) {

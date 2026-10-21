@@ -11,7 +11,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'dart:convert';
+
 import 'package:novelux/config/ThemeController.dart';
+import 'package:novelux/config/notification_router.dart';
+import 'package:novelux/config/deep_link_service.dart';
 import 'package:no_screenshot/no_screenshot.dart';
 import 'package:novelux/config/app_route_observer.dart';
 import 'package:novelux/config/app_style.dart';
@@ -120,6 +124,7 @@ void _handleForegroundMessage(RemoteMessage message) {
         id: notification.hashCode,
         title: notification.title,
         body: notification.body,
+        payload: jsonEncode(message.data),
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             'high_importance_channel',
@@ -229,12 +234,18 @@ Future<void> _setupFcmInBackground(SendTokenService sendTokenService) async {
         await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       myLog.log('App launched from notification: ${initialMessage.messageId}');
+      // Opened by MainScreen once it's up (see NotificationRouter).
+      NotificationRouter.setPending(initialMessage.data);
     }
 
     // Register message listeners
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    FirebaseMessaging.onMessageOpenedApp.listen(
-      (msg) => myLog.log('Message clicked!: $msg'),
+    FirebaseMessaging.onMessageOpenedApp.listen((msg) {
+      myLog.log('Message clicked!: ${msg.data}');
+      NotificationRouter.open(msg.data);
+    });
+    selectNotificationStream.stream.listen(
+      (response) => NotificationRouter.openPayload(response.payload),
     );
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       myLog.log('FCM Token refreshed: $newToken');
@@ -322,6 +333,8 @@ void main() async {
   ) {
     Logger.init(kReleaseMode ? LogMode.live : LogMode.debug);
     runApp(const MyApp());
+    // Website links (www.novelux.app/explore/…, /story/…) open the book.
+    DeepLinkService.init();
   });
 
   SystemChrome.setSystemUIOverlayStyle(

@@ -322,7 +322,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   void _shareStory(Map story) {
     Share.share(
       'Check out "${story['title']}" on ${AppConstants.appName}!\n'
-      'https://novelux.onrender.com/story/${story['slug']}',
+      'https://www.novelux.app/story/${story['slug']}/',
     );
   }
 

@@ -76,6 +76,9 @@ dependencies:
   sign_in_with_apple: ^7.0.1
   app_tracking_transparency: ^2.0.7
   cupertino_native_better: ^1.6.0
+  in_app_update: ^4.2.5
+  upgrader: ^13.7.0
+  app_links: ^7.0.0
   
   # google_fonts: ^6.2.1
 
@@ -142,15 +145,17 @@ launcher_name:
 
 
 flutter_launcher_icons:
-  # Android is the rebranded HuxNovel app; iOS is still live as NoveluX and
-  # keeps its existing icon assets, so only Android is regenerated here.
+  # Both platforms use the HuxNovel wordmark. iOS gets its own copy of the
+  # Android image with the dark rounded corners filled white and no alpha
+  # channel (App Store requirement) — iOS applies its own corner mask.
   image_path: "assets/images/1024_android.png"
   android:
     generate: true
     image_path: "assets/images/1024_android.png"
-  # `ios: false` must be a bare boolean — a nested `generate: false` map still
-  # triggers iOS generation in 0.14.x. Other platforms are simply omitted.
-  ios: false
+  ios: true
+  image_path_ios: "assets/images/1024_ios.png"
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
 
 flutter_native_splash:
   # Android = HuxNovel wordmark. iOS (still NoveluX) keeps its existing splash
