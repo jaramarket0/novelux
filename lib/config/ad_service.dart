@@ -116,9 +116,9 @@ class AdService {
   }
 
   // ── Banner ──────────────────────────────────────────────────────────────────
-  BannerAd buildBanner({BannerAdListener? listener}) => BannerAd(
+  BannerAd buildBanner({BannerAdListener? listener, AdSize size = AdSize.banner}) => BannerAd(
         adUnitId: _AdIds.banner,
-        size: AdSize.banner,
+        size: size,
         request: const AdRequest(),
         listener: listener ?? const BannerAdListener(),
       );
@@ -147,6 +147,16 @@ class AdService {
     } else if (_chaptersRead % _interstitialFrequency == 0) {
       _showInterstitial();
     }
+  }
+
+  int _listenBooksOpened = 0;
+
+  /// "Listen to your books": an interstitial on every second book opened.
+  /// Shown before playback starts, never in the middle of listening.
+  void onListenBookOpened() {
+    if (_isVip) return;
+    _listenBooksOpened++;
+    if (_listenBooksOpened % 2 == 0) _showInterstitial();
   }
 
   void _showInterstitial() {
@@ -276,11 +286,25 @@ class AdBannerWidget extends StatefulWidget {
 class _AdBannerWidgetState extends State<AdBannerWidget> {
   BannerAd? _ad;
   bool _loaded = false;
+  bool _requested = false;
 
+  // Anchored adaptive banner: as wide as the screen, height picked by Google.
+  // Needs the screen width, so it's requested once the context is ready.
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requested) return;
+    _requested = true;
+    _load(MediaQuery.of(context).size.width.truncate());
+  }
+
+  Future<void> _load(int width) async {
+    final size =
+        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(width) ??
+            AdSize.banner;
+    if (!mounted) return;
     _ad = AdService.instance.buildBanner(
+      size: size,
       listener: BannerAdListener(
         onAdLoaded: (_) {
           if (mounted) setState(() => _loaded = true);
@@ -307,7 +331,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
     if (!_loaded || ad == null) return const SizedBox.shrink();
     return SizedBox(
       height: ad.size.height.toDouble(),
-      width: ad.size.width.toDouble(),
+      width: double.infinity,
       child: AdWidget(ad: ad),
     );
   }

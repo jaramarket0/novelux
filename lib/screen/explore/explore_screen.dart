@@ -4,6 +4,7 @@ import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:novelux/screen/listen/listen_home_screen.dart';
 import 'package:novelux/screen/explore/ranking_more_screen.dart';
 import 'package:novelux/screen/explore/genre_section_more_screen.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -575,16 +576,60 @@ class _ExploreScreenState extends State<ExploreScreen> {
                               placeHolder:
                                   'assets/images/novelux_placeholder_transcpr.jpg',
                             ),
-                            Text(
-                              AppConstants.appName,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: depperBlue,
-                                fontFamily: kFontFamily,
+                            Expanded(
+                              child: Text(
+                                AppConstants.appName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: depperBlue,
+                                  fontFamily: kFontFamily,
+                                ),
                               ),
                             ),
-                            Spacer(),
+                            // ── Listen to your own books ───────────────────
+                            GestureDetector(
+                              onTap:
+                                  () => Get.to(
+                                    () => const ListenHomeScreen(),
+                                    transition: Transition.cupertino,
+                                  ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cardBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: depperBlue.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.headphones,
+                                      size: 15,
+                                      color: depperBlue,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Listen',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: depperBlue,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                             // ── Language picker button ─────────────────────
                             GestureDetector(
                               onTap:
@@ -595,7 +640,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                                     cardBg,
                                   ),
                               child: Container(
-                                margin: const EdgeInsets.all(8),
+                                margin: const EdgeInsets.symmetric(vertical: 8),
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: cardBg,

@@ -11,6 +11,8 @@ import google_mobile_ads
   private var ttsChannel: FlutterMethodChannel?
   private var mediaChannel: FlutterMethodChannel?
   private let speechSynthesizer = AVSpeechSynthesizer()
+  // Utterance → id passed from Dart, echoed back in callbacks
+  private var utteranceIds: [ObjectIdentifier: String] = [:]
 
   override func application(
     _ application: UIApplication,
@@ -51,8 +53,16 @@ import google_mobile_ads
         let text = args["text"] as? String ?? ""
         let speed = args["speed"] as? Double ?? 1.0
         let lang = args["lang"] as? String ?? "en-US"
-        self.speak(text: text, speed: speed, lang: lang)
+        let pitch = args["pitch"] as? Double ?? 1.0
+        let id = args["id"] as? String ?? "utterance"
+        let voice = args["voice"] as? String
+        self.speak(text: text, speed: speed, lang: lang, pitch: pitch, id: id, voiceId: voice)
         result(nil)
+      case "getVoices":
+        result(AVSpeechSynthesisVoice.speechVoices().map { v in
+          ["name": v.identifier, "label": v.name, "locale": v.language,
+           "network": false, "quality": v.quality == .enhanced ? 400 : 300]
+        })
       case "stop", "pause":
         self.stopSpeaking()
         result(nil)
@@ -73,7 +83,8 @@ import google_mobile_ads
     }
   }
 
-  private func speak(text: String, speed: Double, lang: String) {
+  private func speak(text: String, speed: Double, lang: String, pitch: Double = 1.0,
+                     id: String = "utterance", voiceId: String? = nil) {
     guard !text.isEmpty else { return }
 
     do {
@@ -86,9 +97,14 @@ import google_mobile_ads
     speechSynthesizer.stopSpeaking(at: .immediate)
 
     let utterance = AVSpeechUtterance(string: text)
-    utterance.voice = AVSpeechSynthesisVoice(language: lang)
+    if let voiceId, let v = AVSpeechSynthesisVoice(identifier: voiceId) {
+      utterance.voice = v
+    } else {
+      utterance.voice = AVSpeechSynthesisVoice(language: lang)
+    }
     utterance.rate = min(max(Float(speed) * AVSpeechUtteranceDefaultSpeechRate, AVSpeechUtteranceMinimumSpeechRate), AVSpeechUtteranceMaximumSpeechRate)
-    utterance.pitchMultiplier = 1.0
+    utterance.pitchMultiplier = Float(min(max(pitch, 0.5), 2.0))
+    utteranceIds[ObjectIdentifier(utterance)] = id
     utterance.postUtteranceDelay = 0.0
 
     speechSynthesizer.speak(utterance)
@@ -98,15 +114,32 @@ import google_mobile_ads
     speechSynthesizer.stopSpeaking(at: .immediate)
   }
 
+  private func idFor(_ utterance: AVSpeechUtterance) -> String {
+    utteranceIds[ObjectIdentifier(utterance)] ?? "utterance"
+  }
+
   func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
-    ttsChannel?.invokeMethod("onStart", arguments: nil)
+    ttsChannel?.invokeMethod("onStart", arguments: ["id": idFor(utterance)])
   }
 
   func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-    ttsChannel?.invokeMethod("onDone", arguments: nil)
+    let id = idFor(utterance)
+    utteranceIds.removeValue(forKey: ObjectIdentifier(utterance))
+    ttsChannel?.invokeMethod("onDone", arguments: ["id": id])
   }
 
   func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-    ttsChannel?.invokeMethod("onError", arguments: nil)
+    let id = idFor(utterance)
+    utteranceIds.removeValue(forKey: ObjectIdentifier(utterance))
+    ttsChannel?.invokeMethod("onError", arguments: ["id": id])
+  }
+
+  // Word being spoken, for highlighting
+  func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange,
+                         utterance: AVSpeechUtterance) {
+    ttsChannel?.invokeMethod("onRange", arguments: [
+      "id": idFor(utterance), "start": characterRange.location,
+      "end": characterRange.location + characterRange.length,
+    ])
   }
 }

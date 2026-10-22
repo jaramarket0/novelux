@@ -1,3 +1,8 @@
+# file_picker: only the document picker is used (book import). Leaving out
+# its photo/media/audio pickers means no photo-library permission is needed.
+Pod::PICKER_MEDIA = false
+Pod::PICKER_AUDIO = false
+
 # Minimum iOS version required by firebase_core and other plugins
 platform :ios, '16.0'
 

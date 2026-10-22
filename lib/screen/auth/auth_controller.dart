@@ -507,6 +507,8 @@ class AuthController extends GetxController {
       final data = res['data'];
       u['coin_balance'] =
           (data?['coin_balance'] as num?)?.toInt() ?? u['coin_balance'];
+      u['bonus_balance'] =
+          (data?['bonus_balance'] as num?)?.toInt() ?? u['bonus_balance'];
       u['is_vip'] = data?['is_vip'] ?? u['is_vip'];
       currentUser.refresh();
     }
@@ -539,6 +541,8 @@ class AuthController extends GetxController {
   String get email => currentUser.value?['email'] ?? '';
   String get role => currentUser.value?['role'] ?? 'reader';
   int get coins => currentUser.value?['coin_balance'] ?? 0;
+  /// Reward coins (check-ins, tasks, ads…) — spent before purchased coins.
+  int get bonus => currentUser.value?['bonus_balance'] ?? 0;
   bool get isVip => currentUser.value?['is_vip'] ?? false;
   String? get vipExpires    => currentUser.value?['vip_expires'] as String?;
   String? get adFreeExpires => currentUser.value?['ad_free_expires'] as String?;

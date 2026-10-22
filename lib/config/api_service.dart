@@ -3932,15 +3932,29 @@ class ApiService {
     int chapterNumber,
   ) => _request('GET', '/chapters/$storySlug/chapters/$chapterNumber/');
 
-  /// Full story for offline reading — gated by rewarded ad ('ad') or a
-  /// 120-coin charge ('coins'); free for VIP subscribers.
+  /// Background sounds for the reader (rain, café…), grouped by category.
+  /// Only fetched when the sound library is opened.
+  static Future<Map<String, dynamic>> getAmbientSounds() =>
+      _request('GET', '/audio/ambient/', requiresAuth: false);
+
+  static Future<Map<String, dynamic>> ambientSoundPlayed(int id) =>
+      _request('POST', '/audio/ambient/$id/play/', requiresAuth: false);
+
+  /// Price to download a book: free for VIP; otherwise the locked chapters
+  /// the reader hasn't unlocked, 10% off, payable with purchased coins only.
+  static Future<Map<String, dynamic>> getDownloadQuote(String storySlug) =>
+      _request('GET', '/chapters/$storySlug/chapters/download/');
+
+  /// Full story for offline reading. Non-VIP readers buy it ('buy') at the
+  /// quoted [price], which also unlocks those chapters online.
   static Future<Map<String, dynamic>> downloadStoryOffline(
-    String storySlug,
-    String method,
-  ) => _request(
+    String storySlug, {
+    String method = 'buy',
+    int? price,
+  }) => _request(
     'POST',
     '/chapters/$storySlug/chapters/download/',
-    body: {'method': method},
+    body: {'method': method, if (price != null) 'price': price},
   );
 
   static Future<Map<String, dynamic>> unlockChapter(
@@ -4300,6 +4314,20 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getCoinHistory() =>
       _request('GET', '/coins/transactions/');
+
+  /// Ad rewards: today's ad tasks and progress.
+  static Future<Map<String, dynamic>> getAdTasks() =>
+      _request('GET', '/coins/ad-tasks/');
+
+  /// Ad rewards: count one finished rewarded ad toward a task. The server
+  /// pays the bonus when the last required ad is watched.
+  static Future<Map<String, dynamic>> adTaskWatched(int taskId) =>
+      _request('POST', '/coins/ad-tasks/$taskId/watched/');
+
+  /// Action tasks (General benefits): record that the reader tapped Go.
+  /// Claim unlocks after the task's wait time.
+  static Future<Map<String, dynamic>> startTask(int taskId) =>
+      _request('POST', '/coins/tasks/$taskId/start/');
 
   static Future<Map<String, dynamic>> completeTask(
     int taskId, {

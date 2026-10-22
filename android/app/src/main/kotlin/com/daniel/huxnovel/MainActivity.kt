@@ -36,6 +36,7 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
     private val NOTIF_CHANNEL_ID = "novelux_audio"
 
     private lateinit var tts: TextToSpeech
+    private var ttsReady = false
     private var mediaSession: MediaSessionCompat? = null
     private var ttsMethodChannel: MethodChannel? = null
     private var mediaMethodChannel: MethodChannel? = null
@@ -85,10 +86,31 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                     val text = call.argument<String>("text") ?: ""
                     val speed = call.argument<Double>("speed")?.toFloat() ?: 1.0f
                     val pitch = call.argument<Double>("pitch")?.toFloat() ?: 1.0f
+                    // Optional: an id echoed back in callbacks, and a voice by name
+                    val id = call.argument<String>("id") ?: "utterance"
+                    val voiceName = call.argument<String>("voice")
+                    if (ttsReady && !voiceName.isNullOrEmpty()) {
+                        try {
+                            tts.voices?.firstOrNull { it.name == voiceName }?.let { tts.voice = it }
+                        } catch (e: Exception) { }
+                    }
                     tts.setSpeechRate(speed)
                     tts.setPitch(pitch)
-                    tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "utterance")
+                    tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
                     result.success(null)
+                }
+                "getVoices" -> {
+                    val voices = try {
+                        if (ttsReady) tts.voices?.map {
+                            mapOf(
+                                "name" to it.name,
+                                "locale" to it.locale.toLanguageTag(),
+                                "network" to it.isNetworkConnectionRequired,
+                                "quality" to it.quality
+                            )
+                        } ?: emptyList() else emptyList()
+                    } catch (e: Exception) { emptyList<Map<String, Any>>() }
+                    result.success(voices)
                 }
                 "stop", "pause" -> {
                     tts.stop()
@@ -187,15 +209,22 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
+            ttsReady = true
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
-                    sendToFlutter(ttsMethodChannel, "onStart")
+                    sendToFlutter(ttsMethodChannel, "onStart", mapOf("id" to (utteranceId ?: "")))
                 }
                 override fun onDone(utteranceId: String?) {
-                    sendToFlutter(ttsMethodChannel, "onDone")
+                    sendToFlutter(ttsMethodChannel, "onDone", mapOf("id" to (utteranceId ?: "")))
                 }
+                @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
-                    sendToFlutter(ttsMethodChannel, "onError")
+                    sendToFlutter(ttsMethodChannel, "onError", mapOf("id" to (utteranceId ?: "")))
+                }
+                // Word being spoken (Android 8+), for highlighting
+                override fun onRangeStart(utteranceId: String?, start: Int, end: Int, frame: Int) {
+                    sendToFlutter(ttsMethodChannel, "onRange",
+                        mapOf("id" to (utteranceId ?: ""), "start" to start, "end" to end))
                 }
             })
         }

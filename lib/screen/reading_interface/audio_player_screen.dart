@@ -6,11 +6,12 @@ import 'package:get/get.dart';
 
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/app_alerts.dart';
+import 'package:novelux/config/tts_bridge.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/widgets/app_glass.dart';
 
 // ── TTS Audio Controller ──────────────────────────────────────────────────────
-class AudioPlayerController extends GetxController {
+class AudioPlayerController extends GetxController implements TtsOwner {
   final RxBool isPlaying = false.obs;
   final RxBool isLoading = false.obs;
   final RxDouble progress = 0.0.obs;
@@ -29,14 +30,23 @@ class AudioPlayerController extends GetxController {
 
   Timer? _progressTimer;
 
-  static const _tts = MethodChannel('novelux/tts');
-  static const _media = MethodChannel('novelux/media_notification');
+  static const _tts = TtsBridge.tts;
+  static const _media = TtsBridge.media;
 
   @override
   void onInit() {
     super.onInit();
-    _tts.setMethodCallHandler(_handleTtsEvent);
-    _media.setMethodCallHandler(_handleMediaCommand);
+    TtsBridge.instance.claim(this);
+  }
+
+  // The speech engine is shared with "Listen to your books" — see TtsBridge.
+  @override
+  Future<dynamic> onTts(MethodCall call) => _handleTtsEvent(call);
+  @override
+  Future<dynamic> onMedia(MethodCall call) => _handleMediaCommand(call);
+  @override
+  void onPreempted() {
+    if (isPlaying.value) pause();
   }
 
   OverlayEntry? _bubbleEntry;
@@ -76,6 +86,7 @@ class AudioPlayerController extends GetxController {
     _stopTts();
     _hideNotification();
     hideBubble();
+    TtsBridge.instance.release(this);
     super.onClose();
   }
 
@@ -210,6 +221,7 @@ class AudioPlayerController extends GetxController {
   // ── Playback ───────────────────────────────────────────────────────────────
   Future<void> play() async {
     if (_sentences.isEmpty) return;
+    TtsBridge.instance.claim(this);
     if (currentSentence.value >= _sentences.length) return;
 
     isLoading.value = true;

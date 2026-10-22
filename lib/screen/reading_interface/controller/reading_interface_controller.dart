@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
@@ -142,6 +143,32 @@ class ReadingInterfaceController extends GetxController {
 
   final RxList<Chapter> chapters = <Chapter>[].obs;
 
+  // ── Auto scroll ───────────────────────────────────────────────────────────
+  // Speeds are lines of text per minute at the reader's font size, so a
+  // preset feels the same whatever the text size.
+  static const Map<String, double> autoScrollPresets = {
+    'Slow': 14,
+    'Medium': 22,
+    'Fast': 34,
+  };
+  static const double customScrollMin = 6;
+  static const double customScrollMax = 70;
+
+  final RxString autoScrollMode = 'Medium'.obs; // a preset name or 'Custom'
+  final RxDouble customScrollSpeed = 22.0.obs; // lines per minute
+  final RxBool autoScrollActive = false.obs; // shows the pause/resume control
+  final RxBool autoScrollPaused = false.obs;
+  Timer? _autoScrollTimer;
+  final Stopwatch _autoScrollClock = Stopwatch();
+  bool _pausedByDrag = false;
+  bool _pausedAtEnd = false;
+  Timer? _dragResumeTimer;
+
+  double get autoScrollLinesPerMinute =>
+      autoScrollMode.value == 'Custom'
+          ? customScrollSpeed.value
+          : autoScrollPresets[autoScrollMode.value] ?? 22;
+
 
   @override
   void onInit() {
@@ -150,6 +177,7 @@ class ReadingInterfaceController extends GetxController {
     WakelockPlus.enable().catchError((_) {});
     scrollController = ScrollController();
     scrollController.addListener(_onScroll);
+    _loadAutoScrollPrefs();
   }
 
   @override
@@ -157,6 +185,8 @@ class ReadingInterfaceController extends GetxController {
     // Release wakelock and restore system brightness
     WakelockPlus.disable().catchError((_) {});
     ScreenBrightness().resetScreenBrightness().catchError((_) {});
+    _autoScrollTimer?.cancel();
+    _dragResumeTimer?.cancel();
     scrollController.dispose();
     super.onClose();
   }
@@ -168,6 +198,148 @@ class ReadingInterfaceController extends GetxController {
     final max = scrollController.position.maxScrollExtent;
     final cur = scrollController.offset;
     _readingProgress.value = max > 0 ? cur / max : 0.0;
+  }
+
+  // ── Auto scroll ───────────────────────────────────────────────────────────
+  Future<void> _loadAutoScrollPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final mode = prefs.getString('auto_scroll_mode');
+      if (mode != null &&
+          (mode == 'Custom' || autoScrollPresets.containsKey(mode))) {
+        autoScrollMode.value = mode;
+      }
+      final custom = prefs.getDouble('auto_scroll_custom');
+      if (custom != null) {
+        customScrollSpeed.value =
+            custom.clamp(customScrollMin, customScrollMax).toDouble();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveAutoScrollPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auto_scroll_mode', autoScrollMode.value);
+      await prefs.setDouble('auto_scroll_custom', customScrollSpeed.value);
+    } catch (_) {}
+  }
+
+  void setAutoScrollMode(String mode) {
+    autoScrollMode.value = mode;
+    _saveAutoScrollPrefs();
+  }
+
+  void setCustomScrollSpeed(double v) {
+    customScrollSpeed.value =
+        v.clamp(customScrollMin, customScrollMax).toDouble();
+    autoScrollMode.value = 'Custom';
+  }
+
+  void saveCustomScrollSpeed() => _saveAutoScrollPrefs();
+
+  /// Nudge the speed from the floating control (switches to Custom).
+  void changeAutoScrollSpeed(double deltaLinesPerMinute) {
+    setCustomScrollSpeed(autoScrollLinesPerMinute + deltaLinesPerMinute);
+    _saveAutoScrollPrefs();
+  }
+
+  void startAutoScroll() {
+    autoScrollActive.value = true;
+    autoScrollPaused.value = false;
+    _pausedByDrag = false;
+    _pausedAtEnd = false;
+    _autoScrollClock
+      ..reset()
+      ..start();
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = Timer.periodic(
+      const Duration(milliseconds: 16),
+      (_) => _autoScrollTick(),
+    );
+  }
+
+  void stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+    _dragResumeTimer?.cancel();
+    _autoScrollClock.stop();
+    autoScrollActive.value = false;
+    autoScrollPaused.value = false;
+  }
+
+  void pauseAutoScroll() {
+    autoScrollPaused.value = true;
+    _pausedByDrag = false;
+    _dragResumeTimer?.cancel();
+  }
+
+  void resumeAutoScroll() {
+    if (!autoScrollActive.value) return startAutoScroll();
+    _pausedByDrag = false;
+    _pausedAtEnd = false;
+    _autoScrollClock
+      ..reset()
+      ..start();
+    autoScrollPaused.value = false;
+  }
+
+  void toggleAutoScrollPause() =>
+      autoScrollPaused.value ? resumeAutoScroll() : pauseAutoScroll();
+
+  /// The reader dragged the page: hold still while they scroll, then carry on.
+  void onUserScrollStart() {
+    if (!autoScrollActive.value || autoScrollPaused.value) return;
+    _pausedByDrag = true;
+    autoScrollPaused.value = true;
+    _dragResumeTimer?.cancel();
+  }
+
+  void onUserScrollEnd() {
+    if (!_pausedByDrag) return;
+    _dragResumeTimer?.cancel();
+    _dragResumeTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (_pausedByDrag) resumeAutoScroll();
+    });
+  }
+
+  /// A new chapter opened: if auto scroll stopped at the end of the last
+  /// one, keep going after a short beat.
+  void _continueAutoScrollOnNewChapter() {
+    if (!autoScrollActive.value || !_pausedAtEnd) return;
+    Timer(const Duration(milliseconds: 1200), () {
+      if (autoScrollActive.value && _pausedAtEnd) resumeAutoScroll();
+    });
+  }
+
+  void _autoScrollTick() {
+    final dt = _autoScrollClock.elapsedMicroseconds / 1e6;
+    _autoScrollClock
+      ..reset()
+      ..start();
+    if (autoScrollPaused.value ||
+        showSettings ||
+        showContents ||
+        showBottomBar ||
+        isLoadingChapter.value) {
+      return;
+    }
+    // Page-flip animation briefly attaches two scroll views — skip those frames
+    if (scrollController.positions.length != 1) return;
+    final pos = scrollController.position;
+    if (pos.maxScrollExtent <= 0) return;
+    if (pos.pixels >= pos.maxScrollExtent - 0.5) {
+      _pausedAtEnd = true;
+      autoScrollPaused.value = true;
+      return;
+    }
+    // Line height ≈ font size × line spacing; speed is lines per minute
+    final lineHeight = fontSize * (1.4 + selectedLineSpacing * 0.2);
+    final pixelsPerSecond = autoScrollLinesPerMinute * lineHeight / 60;
+    final step = pixelsPerSecond * dt.clamp(0.0, 0.1);
+    scrollController.jumpTo(
+      (pos.pixels + step).clamp(0.0, pos.maxScrollExtent),
+    );
   }
 
   // ── Volume key page turn ──────────────────────────────────────────────────
@@ -261,6 +433,7 @@ class ReadingInterfaceController extends GetxController {
       isLoadingChapter.value = false;
       if (scrollController.hasClients) scrollController.jumpTo(0);
       _readingProgress.value = 0.0;
+      _continueAutoScrollOnNewChapter();
       return;
     }
 
@@ -290,6 +463,7 @@ class ReadingInterfaceController extends GetxController {
         scrollController.jumpTo(0);
       }
       _readingProgress.value = 0.0;
+      if (!locked) _continueAutoScrollOnNewChapter();
     } else {
       isCurrentChapterLocked.value = false;
       chapterContent.value = res['error'] ?? 'Failed to load chapter.';

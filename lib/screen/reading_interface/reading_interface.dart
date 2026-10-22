@@ -16,6 +16,7 @@ import 'package:novelux/screen/library/controller/library_controller.dart';
 //import 'package:novelux/screen/audio/audio_player_screen.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/reading_interface/audio_player_screen.dart';
+import 'package:novelux/screen/reading_interface/ambient_sound.dart';
 //import 'package:novelux/screen/reading_schedule/reading_schedule_screen.dart';
 import 'package:novelux/screen/reading_interface/controller/reading_interface_controller.dart';
 import 'package:novelux/screen/reading_interface/controller/continue_reading_controller.dart';
@@ -1312,6 +1313,11 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     appRouteObserver.unsubscribe(this);
     _unblockScreenshots();
     ctrl.stopReadingTimer();
+    ctrl.stopAutoScroll();
+    // Background sound plays only while reading
+    if (Get.isRegistered<AmbientSoundController>()) {
+      Get.delete<AmbientSoundController>();
+    }
     _flipCtrl.dispose();
     super.dispose();
   }
@@ -2348,6 +2354,11 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                   if (ctrl.showBottomBar) _buildBottomBar(),
                   if (!ctrl.showSettings && !ctrl.showContents)
                     _buildRightFabs(),
+                  if (ctrl.autoScrollActive.value &&
+                      !ctrl.showSettings &&
+                      !ctrl.showContents &&
+                      !ctrl.showBottomBar)
+                    _buildAutoScrollControl(),
                   // Banner ad — hidden while controls / settings are open.
                   // Stays mounted and is hidden with Offstage rather than
                   // dropped from the tree: an `if` here tore the widget down
@@ -2507,7 +2518,20 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     );
   }
 
-  Widget _scrollPage(String content) => SingleChildScrollView(
+  Widget _scrollPage(String content) => NotificationListener<ScrollNotification>(
+    // Auto scroll holds while the reader drags the page, then carries on
+    onNotification: (n) {
+      if (n is ScrollStartNotification && n.dragDetails != null) {
+        ctrl.onUserScrollStart();
+      } else if (n is ScrollEndNotification) {
+        ctrl.onUserScrollEnd();
+      }
+      return false;
+    },
+    child: _scrollPageBody(content),
+  );
+
+  Widget _scrollPageBody(String content) => SingleChildScrollView(
     controller: ctrl.scrollController,
     padding: const EdgeInsets.fromLTRB(24, 80, 24, 160),
     child: Column(
@@ -3235,6 +3259,14 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
             ),
             const SizedBox(height: 16),
 
+            // ── Auto scroll ───────────────────────────────────────────────
+            _buildAutoScrollSettings(labelColor),
+            const SizedBox(height: 16),
+
+            // ── Background sound ──────────────────────────────────────────
+            _buildAmbientSoundRow(labelColor),
+            const SizedBox(height: 16),
+
             // ── Page flip effect ──────────────────────────────────────────
             Text(
               'Page flip effect',
@@ -3299,6 +3331,216 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Auto scroll: settings section ───────────────────────────────────────
+  Widget _buildAutoScrollSettings(Color labelColor) {
+    final modes = [
+      ...ReadingInterfaceController.autoScrollPresets.keys,
+      'Custom',
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Auto scroll', style: TextStyle(fontSize: 11, color: labelColor)),
+        const SizedBox(height: 8),
+        Obx(
+          () => Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children:
+                modes.map((m) {
+                  final sel = ctrl.autoScrollMode.value == m;
+                  return GestureDetector(
+                    onTap: () => ctrl.setAutoScrollMode(m),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: sel ? depperBlue : Colors.grey[600]!,
+                          width: sel ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        m,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: sel ? depperBlue : Colors.grey[500],
+                          fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+          ),
+        ),
+        Obx(
+          () =>
+              ctrl.autoScrollMode.value != 'Custom'
+                  ? const SizedBox(height: 10)
+                  : Row(
+                    children: [
+                      Icon(Icons.slow_motion_video, color: Colors.grey[500], size: 18),
+                      Expanded(
+                        child: Slider(
+                          value: ctrl.customScrollSpeed.value,
+                          min: ReadingInterfaceController.customScrollMin,
+                          max: ReadingInterfaceController.customScrollMax,
+                          onChanged: ctrl.setCustomScrollSpeed,
+                          onChangeEnd: (_) => ctrl.saveCustomScrollSpeed(),
+                          activeColor: depperBlue,
+                          inactiveColor: Colors.grey[700],
+                        ),
+                      ),
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          '${ctrl.customScrollSpeed.value.round()} lines/min',
+                          style: TextStyle(fontSize: 10, color: Colors.orange[300]),
+                        ),
+                      ),
+                    ],
+                  ),
+        ),
+        Obx(
+          () => SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: depperBlue,
+                side: const BorderSide(color: depperBlue),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              onPressed: () {
+                if (ctrl.autoScrollActive.value) {
+                  ctrl.stopAutoScroll();
+                } else {
+                  ctrl.hideAllControls();
+                  ctrl.startAutoScroll();
+                }
+              },
+              icon: Icon(
+                ctrl.autoScrollActive.value
+                    ? Icons.stop_rounded
+                    : Icons.play_arrow_rounded,
+                size: 18,
+              ),
+              label: Text(
+                ctrl.autoScrollActive.value
+                    ? 'Stop auto scroll'
+                    : 'Start auto scroll',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Auto scroll: floating pause / resume control ─────────────────────────
+  Widget _buildAutoScrollControl() {
+    final bottom = MediaQuery.of(context).padding.bottom + 72;
+    Widget btn(IconData icon, VoidCallback onTap, {double size = 20}) =>
+        InkResponse(
+          onTap: onTap,
+          radius: 22,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Icon(icon, color: Colors.white, size: size),
+          ),
+        );
+    return Positioned(
+      bottom: bottom,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: depperBlue.withValues(alpha: 0.5)),
+          ),
+          child: Obx(
+            () => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                btn(Icons.remove_rounded, () => ctrl.changeAutoScrollSpeed(-3)),
+                Text(
+                  '${ctrl.autoScrollLinesPerMinute.round()}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                btn(Icons.add_rounded, () => ctrl.changeAutoScrollSpeed(3)),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: Colors.white24,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                ),
+                btn(
+                  ctrl.autoScrollPaused.value
+                      ? Icons.play_arrow_rounded
+                      : Icons.pause_rounded,
+                  ctrl.toggleAutoScrollPause,
+                  size: 26,
+                ),
+                btn(Icons.close_rounded, ctrl.stopAutoScroll, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Background sound: settings row ───────────────────────────────────────
+  Widget _buildAmbientSoundRow(Color labelColor) {
+    final registered = Get.isRegistered<AmbientSoundController>();
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () async {
+        await showAmbientSoundLibrary(background: ctrl.currentBackgroundColor);
+        if (mounted) setState(() {});
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.headphones, color: depperBlue, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              'Background sound',
+              style: TextStyle(fontSize: 12, color: labelColor),
+            ),
+            const Spacer(),
+            if (registered)
+              Obx(() {
+                final c = Get.find<AmbientSoundController>();
+                final s = c.current.value;
+                return Text(
+                  s == null ? 'Off' : '${c.isPlaying.value ? '♪ ' : ''}${s.title}',
+                  style: TextStyle(fontSize: 11, color: Colors.orange[300]),
+                );
+              })
+            else
+              Text('Off', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            Icon(Icons.chevron_right, color: Colors.grey[500], size: 18),
           ],
         ),
       ),

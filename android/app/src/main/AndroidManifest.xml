@@ -1,9 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 <uses-permission android:name="android.permission.INTERNET"/>
 <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 <uses-permission android:name="android.permission.WAKE_LOCK" />
 <uses-permission android:name="com.android.vending.BILLING" />
+<!-- Books are imported through the system file picker, which needs no
+     storage permission. Make sure no library sneaks one in: these need a
+     Play Console declaration (and video) and would block review. -->
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" tools:node="remove" />
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
+<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove" />
     <application
         android:label="@string/appName"
         android:name="${applicationName}"
@@ -78,6 +88,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lets the app find the phone's text-to-speech engine (Android 11+) -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
         </intent>
     </queries>
 </manifest>

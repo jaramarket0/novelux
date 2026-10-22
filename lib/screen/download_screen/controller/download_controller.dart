@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:novelux/config/ad_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/vip_screen.dart';
 import 'package:novelux/widgets/auth_prompt_sheet.dart';
-import 'package:novelux/widgets/download_gate_dialog.dart';
+import 'package:novelux/screen/coins/coin_store_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as myLog;
 import 'package:novelux/core/constants/app_constants.dart';
@@ -140,12 +139,12 @@ class DownloadController extends GetxController {
       downloads.where((d) => d.slug == slug).firstOrNull;
 
   // ── Download ─────────────────────────────────────────────────────────────
-  static const int coinCost = 120;
 
-  /// Entry point for the download buttons: shows the gate dialog
-  /// (rewarded ad with countdown / pay coins / cancel), then downloads.
-  /// VIP subscribers skip the gate entirely; exclusive stories are
-  /// downloadable by VIPs only.
+  /// Entry point for the download buttons. VIP subscribers download free.
+  /// Everyone else buys the book: the locked chapters they haven't unlocked
+  /// yet, 10% off, paid with purchased coins (bonus coins can't be used).
+  /// Buying also unlocks those chapters for online reading. Exclusive
+  /// stories are downloadable by VIPs only.
   Future<void> requestDownload({
     required String slug,
     required String title,
@@ -173,56 +172,63 @@ class DownloadController extends GetxController {
       }
     }
 
-    // VIP: downloads are included with the subscription — no gate
+    // VIP: downloads are included with the subscription
     if (auth.isVip) {
       await _performDownload(
         slug: slug, title: title, author: author, coverUrl: coverUrl,
-        method: 'ad',
       );
       return;
     }
 
-    final method = await Get.dialog<String>(
-      DownloadGateDialog(storyTitle: title, coinCost: coinCost),
-      barrierDismissible: false,
-    );
-    if (method == null) return; // cancelled
+    final quoteRes = await ApiService.getDownloadQuote(slug);
+    if (quoteRes['success'] != true) {
+      AppAlert.error(quoteRes['error']?.toString() ??
+          'Could not get the price — please try again.');
+      return;
+    }
+    final quote = Map<String, dynamic>.from(quoteRes['data'] as Map);
+    final price = (quote['price'] as num?)?.toInt() ?? 0;
 
-    if (method == 'ad') {
-      final ads = AdService.instance;
-      if (!ads.isRewardedReady) {
-        AppAlert.error(
-          'Ad not available right now — please try again in a moment.',
-        );
-        return;
-      }
-      bool earned = false;
-      final shown = await ads.showRewarded(onRewarded: (_) => earned = true);
-      if (!shown || !earned) {
-        AppAlert.info('Watch the full ad to unlock the download.');
-        return;
-      }
-    } else if (method == 'coins') {
-      // Coins are account money — this is the one download path that needs
-      // an account. The ad path above works fine signed out.
-      if (!auth.isLoggedIn.value) {
-        if (await promptSignIn(AuthPromptReason.coins) != true) return;
-      }
-      if (auth.coins < coinCost) {
-        AppAlert.warning(
-          'Not enough coins — you need $coinCost coins for this download.',
+    // Nothing left to pay for (free book, or every locked chapter owned)
+    if (price == 0) {
+      await _performDownload(
+        slug: slug, title: title, author: author, coverUrl: coverUrl,
+      );
+      return;
+    }
+    if (quote['can_buy'] == false) {
+      _showVipRequiredDialog(title);
+      return;
+    }
+    if (!auth.isLoggedIn.value) {
+      if (await promptSignIn(AuthPromptReason.coins) != true) return;
+      await auth.fetchMe();
+      if (auth.isVip) {
+        await _performDownload(
+          slug: slug, title: title, author: author, coverUrl: coverUrl,
         );
         return;
       }
     }
 
+    final confirmed = await Get.dialog<bool>(
+      _BuyBookDialog(
+        title: title,
+        price: price,
+        fullPrice: (quote['full_price'] as num?)?.toInt() ?? price,
+        discountPct: (quote['discount_pct'] as num?)?.toInt() ?? 10,
+        chapters: (quote['chapters_to_buy'] as num?)?.toInt() ?? 0,
+        balance: auth.coins,
+      ),
+    );
+    if (confirmed != true) return;
+
     await _performDownload(
       slug: slug, title: title, author: author, coverUrl: coverUrl,
-      method: method,
+      price: price,
     );
-
     // Coin balance changed server-side — refresh the profile
-    if (method == 'coins') auth.fetchMe();
+    auth.fetchMe();
   }
 
   /// Prompt shown when a non-VIP tries to download an exclusive story.
@@ -297,7 +303,7 @@ class DownloadController extends GetxController {
     required String title,
     required String author,
     required String coverUrl,
-    required String method,
+    int? price,
   }) async {
     downloadStatus[slug] = 'downloading';
     progress[slug] = 0.1;
@@ -305,7 +311,7 @@ class DownloadController extends GetxController {
     AppAlert.info('⬇ Downloading — Saving "$title" for offline reading...');
 
     try {
-      final res = await ApiService.downloadStoryOffline(slug, method);
+      final res = await ApiService.downloadStoryOffline(slug, price: price);
       if (res['success'] != true) {
         // Surface the backend's reason (e.g. "exclusive — requires VIP",
         // "Insufficient coins") instead of a generic connection error
@@ -386,5 +392,159 @@ class DownloadController extends GetxController {
   void clearSelection() {
     selected.clear();
     isMarked.value = false;
+  }
+}
+
+
+/// Confirms buying a book for download: the discounted price, what it
+/// includes, and that only purchased coins can be used.
+class _BuyBookDialog extends StatelessWidget {
+  final String title;
+  final int price;
+  final int fullPrice;
+  final int discountPct;
+  final int chapters;
+  final int balance;
+
+  const _BuyBookDialog({
+    required this.title,
+    required this.price,
+    required this.fullPrice,
+    required this.discountPct,
+    required this.chapters,
+    required this.balance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enough = balance >= price;
+    return Dialog(
+      backgroundColor: const Color(0xFF232220),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 26, 24, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.download_for_offline,
+                color: Color(0xFFF5D9A8), size: 42),
+            const SizedBox(height: 14),
+            Text(
+              'Buy & download',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '"$title" — $chapters locked chapter${chapters == 1 ? '' : 's'}. '
+              'They stay unlocked for online reading too.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$price coins',
+                  style: const TextStyle(
+                    color: Color(0xFFF5D9A8),
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (fullPrice > price) ...[
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 3),
+                    child: Text(
+                      '$fullPrice',
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 14,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5D9A8).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$discountPct% off',
+                      style: const TextStyle(
+                        color: Color(0xFFF5D9A8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Your coins: $balance · bonus coins can\'t be used for downloads',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF5D9A8),
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () {
+                  if (enough) {
+                    Get.back(result: true);
+                  } else {
+                    Get.back(result: false);
+                    Get.to(() => const CoinStoreScreen());
+                  }
+                },
+                child: Text(
+                  enough ? 'Buy for $price coins' : 'Get coins',
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () {
+                Get.back(result: false);
+                Get.to(() => const VipScreen());
+              },
+              child: const Text(
+                '👑 Download free with VIP',
+                style: TextStyle(color: Color(0xFFF5D9A8), fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
