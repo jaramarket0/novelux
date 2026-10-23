@@ -8,18 +8,24 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/tts_bridge.dart';
 import 'package:novelux/screen/reading_interface/ambient_sound.dart';
 
+import 'package:novelux/screen/reading_interface/reading_interface.dart';
+
+import 'listen_chat_head.dart';
 import 'listen_controller.dart';
 import 'listen_home_screen.dart';
 
 class ListenPlayerScreen extends StatefulWidget {
-  const ListenPlayerScreen({super.key});
+  /// Which player to show: none for the Listen library's, [StoryListen.tag]
+  /// for chapters read aloud from the reading screen.
+  final String? tag;
+  const ListenPlayerScreen({super.key, this.tag});
 
   @override
   State<ListenPlayerScreen> createState() => _ListenPlayerScreenState();
 }
 
 class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
-  final ListenPlayerController p = Get.find<ListenPlayerController>();
+  late final ListenPlayerController p = Get.find<ListenPlayerController>(tag: widget.tag);
   final ScrollController _scroll = ScrollController();
   List<GlobalKey> _keys = [];
   int _keysForChapter = -1;
@@ -30,6 +36,7 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    if (p.isStory) ListenChatHead.instance.playerOpened();
     _workers
       ..add(ever(p.paragraphIndex, (_) => _follow()))
       ..add(ever(p.chapterIndex, (_) {
@@ -41,6 +48,10 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
 
   @override
   void dispose() {
+    if (widget.tag == StoryListen.tag) {
+      StoryListen.rememberPosition();
+      ListenChatHead.instance.playerClosed();
+    }
     for (final w in _workers) {
       w.dispose();
     }
@@ -84,8 +95,9 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: c.text),
         leading: IconButton(
+          tooltip: p.isStory ? 'Back to reading' : 'Close',
           icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 30),
-          onPressed: Get.back,
+          onPressed: p.isStory ? () => _backToReading(stop: false) : Get.back,
         ),
         title: Obx(
           () => Text(
@@ -101,16 +113,18 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
             icon: const Icon(LucideIcons.search, size: 20),
             onPressed: () => _searchSheet(c),
           ),
-          IconButton(
-            tooltip: 'Bookmarks',
-            icon: const Icon(LucideIcons.bookmark, size: 20),
-            onPressed: () => _bookmarksSheet(c),
-          ),
-          IconButton(
-            tooltip: 'Contents',
-            icon: const Icon(LucideIcons.listOrdered, size: 20),
-            onPressed: () => _contentsSheet(c),
-          ),
+          if (!p.isStory) ...[
+            IconButton(
+              tooltip: 'Bookmarks',
+              icon: const Icon(LucideIcons.bookmark, size: 20),
+              onPressed: () => _bookmarksSheet(c),
+            ),
+            IconButton(
+              tooltip: 'Contents',
+              icon: const Icon(LucideIcons.listOrdered, size: 20),
+              onPressed: () => _contentsSheet(c),
+            ),
+          ],
         ],
       ),
       body: Obx(() {
@@ -142,8 +156,19 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
               style: const TextStyle(color: depperBlue, fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
+          if (p.fetchingNextChapter.value)
+            const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: depperBlue),
+              ),
+            ),
           Text(
-            '${p.chapterIndex.value + 1} / ${p.chapters.length}',
+            p.isStory
+                ? 'Chapter ${p.storyChapterNumber}${p.storyTotalChapters > 0 ? ' / ${p.storyTotalChapters}' : ''}'
+                : '${p.chapterIndex.value + 1} / ${p.chapters.length}',
             style: TextStyle(color: c.sub, fontSize: 12),
           ),
         ],
@@ -266,6 +291,7 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (p.isStory) _storyActions(c),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 trackHeight: 3,
@@ -289,7 +315,9 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  '${(p.bookProgress * 100).round()}% · ${formatDuration(p.timeLeftInBook)} left',
+                  p.isStory
+                      ? '${(pos * 100).round()}% of chapter'
+                      : '${(p.bookProgress * 100).round()}% · ${formatDuration(p.timeLeftInBook)} left',
                   style: TextStyle(color: c.sub, fontSize: 11),
                 ),
               ],
@@ -337,7 +365,8 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
                     active: p.sleepLeft.value != null || p.sleepAtChapterEnd.value,
                   ),
                   _chip(c, LucideIcons.audioLines, p.voiceLabel.value, () => _voiceSheet(c)),
-                  _chip(c, LucideIcons.bookmarkPlus, 'Bookmark', p.addBookmark),
+                  if (!p.isStory)
+                    _chip(c, LucideIcons.bookmarkPlus, 'Bookmark', p.addBookmark),
                   _chip(c, LucideIcons.headphones, 'Sounds', () => showAmbientSoundLibrary(background: c.card)),
                   _chip(c, LucideIcons.slidersHorizontal, 'Display', () => _displaySheet(c)),
                 ],
@@ -347,6 +376,74 @@ class _ListenPlayerScreenState extends State<ListenPlayerScreen> {
         );
       }),
     );
+  }
+
+  /// Story mode: the two ways back to the reader.
+  Widget _storyActions(ListenColors c) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: c.text,
+              side: BorderSide(color: c.divider),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            onPressed: () => _backToReading(stop: true),
+            icon: const Icon(Icons.stop_rounded, size: 18),
+            label: const Text('Stop listening', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: depperBlue.withValues(alpha: 0.15),
+              foregroundColor: depperBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            onPressed: () => _backToReading(stop: false),
+            icon: const Icon(LucideIcons.bookOpen, size: 16),
+            label: const Text('Back to reading', style: TextStyle(fontSize: 12)),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// Return to the reading screen, at the chapter being listened to.
+  /// [stop] ends listening; otherwise it carries on in the background.
+  Future<void> _backToReading({required bool stop}) async {
+    StoryListen.rememberPosition();
+    final slug = p.storySlug;
+    final title = p.book.value?.title ?? '';
+    final chapter = p.storyChapterNumber;
+    final chapterTitle = p.chapterTitle;
+    final cover = p.storyCover;
+    final author = p.storyAuthor;
+    final total = p.storyTotalChapters;
+    if (stop) {
+      await p.stopSession();
+      AdService.instance.onListenBookOpened(); // an interstitial now and then, never mid-listen
+    }
+    if (ListenChatHead.instance.readerOpen || slug == null) {
+      Get.back();
+    } else {
+      // Came here from the floating head — open the book at that chapter
+      Get.off(
+        () => NovelUpReadingInterface(
+          storySlug: slug,
+          storyTitle: title,
+          chapterNumber: chapter,
+          chapterTitle: chapterTitle,
+          coverUrl: cover,
+          author: author,
+          totalChapter: total,
+        ),
+        transition: Transition.cupertino,
+      );
+    }
   }
 
   Widget _chip(ListenColors c, IconData icon, String label, VoidCallback onTap, {bool active = false}) =>

@@ -88,7 +88,13 @@ class StoryDetailController extends GetxController {
   final RxBool isLoadingSimilar = false.obs;
 
   final Rx<Map?> story = Rx<Map?>(null);
+  /// Chapters loaded so far: a page around where the reader is (enough for
+  /// the 3-row preview) until the "All chapters" sheet loads the full list.
   final RxList chapters = [].obs;
+  final RxInt totalChapters = 0.obs;
+  final RxBool chaptersComplete = false.obs;
+  final RxBool isLoadingAllChapters = false.obs;
+  static const _previewPageSize = 10;
   final RxList similarStories = [].obs;
   final RxList reviews = [].obs;
   final RxInt reviewCount = 0.obs;
@@ -199,26 +205,86 @@ class StoryDetailController extends GetxController {
         0;
 
     await Future.wait([
-      loadChapters(slug),
+      () async {
+        await loadPosition(slug);
+        await loadChapters(slug);
+      }(),
       loadReviews(slug),
-      loadPosition(slug),
       // Keep the current picks on a refresh; "More" brings new ones
       if (!silent || _allSimilarStories.isEmpty) loadSimilarStories(slug),
     ]);
   }
 
+  /// Chapter number Read / Listen continue from (the saved chapter, or the
+  /// next one once it's finished); 1 for a new reader.
+  int get resumeChapterNumber {
+    final pos = position.value;
+    if (pos == null) return 1;
+    return pos.fraction >= 0.95 ? pos.chapter + 1 : pos.chapter;
+  }
+
+  /// Loads just the page of chapters around where the reader is — the full
+  /// list is only fetched when the "All chapters" sheet opens. (Once it has
+  /// been loaded, refreshes keep the full list.)
   Future<void> loadChapters(String slug) async {
+    if (chaptersComplete.value) return loadAllChapters(slug, force: true);
     myLog.log(
       'Loading chapters for story: $slug',
       name: 'StoryDetailController',
     );
     isLoadingChapters.value = chapters.isEmpty;
-    final res = await ApiService.getChapters(slug);
-    isLoadingChapters.value = false;
-    if (res['success']) {
-      chapters.value =
-          res['data'] is List ? res['data'] : (res['data']['results'] ?? []);
+    final page = ((resumeChapterNumber - 1) ~/ _previewPageSize) + 1;
+    var res = await ApiService.getChapters(slug, page: page, pageSize: _previewPageSize);
+    if (res['success'] != true && page > 1) {
+      // Saved position beyond the last page (chapters removed) — use page 1
+      res = await ApiService.getChapters(slug, page: 1, pageSize: _previewPageSize);
     }
+    isLoadingChapters.value = false;
+    if (res['success'] == true) {
+      final data = res['data'];
+      final List list = data is List ? data : (data['results'] ?? []);
+      chapters.value = list;
+      totalChapters.value =
+          data is Map ? (data['count'] as num?)?.toInt() ?? list.length : list.length;
+      chaptersComplete.value = list.length >= totalChapters.value;
+    }
+  }
+
+  /// Every chapter, for the "All chapters" sheet (and to find the resume
+  /// chapter if it isn't in the preview page).
+  Future<void> loadAllChapters(String slug, {bool force = false}) async {
+    if (chaptersComplete.value && !force) return;
+    if (isLoadingAllChapters.value) return;
+    isLoadingAllChapters.value = true;
+    final all = [];
+    var page = 1;
+    var ok = true;
+    while (true) {
+      final res = await ApiService.getChapters(slug, page: page, pageSize: 500);
+      if (res['success'] != true) {
+        ok = false;
+        break;
+      }
+      final data = res['data'];
+      final List list = data is List ? data : (data['results'] ?? []);
+      all.addAll(list);
+      if (data is! Map || data['next'] == null || list.isEmpty) break;
+      page++;
+    }
+    isLoadingAllChapters.value = false;
+    if (ok) {
+      chapters.value = all;
+      totalChapters.value = all.length;
+      chaptersComplete.value = true;
+    }
+  }
+
+  /// Make sure the chapter Read / Listen should open is loaded.
+  Future<void> ensureResumeChapterLoaded(String slug) async {
+    if (chaptersComplete.value) return;
+    final want = resumeChapterNumber;
+    final has = chapters.any((c) => chapterNumber(c as Map, 0) == want);
+    if (!has) await loadAllChapters(slug);
   }
 
   Future<void> loadSimilarStories(String slug) async {
@@ -356,12 +422,12 @@ class StoryDetailController extends GetxController {
   int get resumeIndex {
     final pos = position.value;
     if (pos == null || chapters.isEmpty) return 0;
-    final i = chapters.indexWhere(
-      (c) => chapterNumber(c as Map, 0) == pos.chapter,
-    );
-    if (i < 0) return 0;
-    if (pos.fraction >= 0.95 && i + 1 < chapters.length) return i + 1;
-    return i;
+    final want = resumeChapterNumber;
+    final i = chapters.indexWhere((c) => chapterNumber(c as Map, 0) == want);
+    if (i >= 0) return i;
+    // Finished the last chapter: stay on it
+    final j = chapters.indexWhere((c) => chapterNumber(c as Map, 0) == pos.chapter);
+    return j >= 0 ? j : 0;
   }
 
   /// 1.0 for chapters before the saved one, the saved fraction for the saved
@@ -464,7 +530,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ctrl.chapters.indexOf(ch),
               ),
               chapterTitle: ch['title']?.toString() ?? '',
-              totalChapter: ctrl.chapters.length,
+              totalChapter: ctrl.totalChapters.value > 0
+                  ? ctrl.totalChapters.value
+                  : ctrl.chapters.length,
               author: _authorName(story),
               genreSlug: genre is Map ? genre['slug']?.toString() : null,
               status: story['status']?.toString(),
@@ -472,17 +540,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       ),
     );
     // Pick up the new position and anything unlocked while reading
-    ctrl.loadPosition(widget.slug);
+    await ctrl.loadPosition(widget.slug);
     ctrl.loadChapters(widget.slug);
   }
 
-  void _readNow() {
+  Future<void> _readNow() async {
     if (ctrl.chapters.isEmpty) {
       if (!ctrl.isLoadingChapters.value) {
         AppAlert.info('No chapters published yet');
       }
       return;
     }
+    await ctrl.ensureResumeChapterLoaded(widget.slug);
+    if (!mounted) return;
     _openChapter(ctrl.chapters[ctrl.resumeIndex] as Map);
   }
 
@@ -501,6 +571,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   Future<void> _listen() async {
     final story = ctrl.story.value;
     if (story == null || ctrl.chapters.isEmpty) return;
+    await ctrl.ensureResumeChapterLoaded(widget.slug);
+    if (!mounted) return;
     final ch = ctrl.chapters[ctrl.resumeIndex] as Map;
     final chNum = StoryDetailController.chapterNumber(ch, ctrl.resumeIndex);
     if (StoryDetailController.isChapterLocked(ch)) {
@@ -588,6 +660,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 
   void _showAllChapters(_Palette p) {
+    // The page only holds a preview; fetch every chapter for the sheet
+    ctrl.loadAllChapters(widget.slug);
     showGlassBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -617,15 +691,26 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Text(
-                            '${ctrl.chapters.length} chapters',
-                            style: TextStyle(color: p.sub, fontSize: 13),
+                          Obx(
+                            () => Text(
+                              '${ctrl.totalChapters.value > 0 ? ctrl.totalChapters.value : ctrl.chapters.length} chapters',
+                              style: TextStyle(color: p.sub, fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     Expanded(
                       child: Obx(() {
+                        if (!ctrl.chaptersComplete.value &&
+                            ctrl.isLoadingAllChapters.value) {
+                          return Center(
+                            child: CircularProgressIndicator(
+                              color: p.accent,
+                              strokeWidth: 2,
+                            ),
+                          );
+                        }
                         final resume = ctrl.resumeIndex;
                         return ListView.builder(
                           controller: scroll,
@@ -1109,13 +1194,11 @@ class _StatsRow extends StatelessWidget {
             p.sub,
           ),
           _divider(),
-          Obx(
-            () => _stat(
-              '${ctrl.chapters.isNotEmpty ? ctrl.chapters.length : story['total_chapters'] ?? 0}',
-              'Chapters',
-              LucideIcons.bookOpen,
-              p.sub,
-            ),
+          _stat(
+            '${story['total_chapters'] ?? 0}',
+            'Chapters',
+            LucideIcons.bookOpen,
+            p.sub,
           ),
           _divider(),
           Obx(
@@ -1268,11 +1351,13 @@ class _ChaptersSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
       child: Obx(() {
         final chapters = ctrl.chapters;
-        final total = chapters.length;
+        final loaded = chapters.length;
+        final total =
+            ctrl.totalChapters.value > 0 ? ctrl.totalChapters.value : loaded;
         final resume = ctrl.resumeIndex;
         // Keep the chapter Read opens in view: one before it, it, one after
-        final start = (resume - 1).clamp(0, (total - _preview).clamp(0, total));
-        final end = (start + _preview).clamp(0, total);
+        final start = (resume - 1).clamp(0, (loaded - _preview).clamp(0, loaded));
+        final end = (start + _preview).clamp(0, loaded);
         final more = total - (end - start);
 
         return Column(
@@ -1676,7 +1761,15 @@ class _ReviewComposerState extends State<_ReviewComposer> {
                   decoration: InputDecoration(
                     hintText: 'Write a comment…',
                     hintStyle: TextStyle(color: p.sub, fontSize: 15),
+                    // The pill around it is the outline — switch off every
+                    // state the app theme would otherwise draw inside it
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    filled: false,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -2137,8 +2230,12 @@ class _BottomBar extends StatelessWidget {
                   String label = 'READ';
                   if (ctrl.hasStarted && ctrl.chapters.isNotEmpty) {
                     final i = ctrl.resumeIndex;
+                    final loadedNum = StoryDetailController.chapterNumber(
+                      ctrl.chapters[i] as Map,
+                      i,
+                    );
                     label =
-                        'CONTINUE · CH ${StoryDetailController.chapterNumber(ctrl.chapters[i] as Map, i)}';
+                        'CONTINUE · CH ${ctrl.chaptersComplete.value ? loadedNum : ctrl.resumeChapterNumber.clamp(1, ctrl.totalChapters.value > 0 ? ctrl.totalChapters.value : loadedNum)}';
                   }
                   return SizedBox(
                     height: 56,

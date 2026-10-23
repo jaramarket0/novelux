@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
 import 'package:novelux/config/tts_bridge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -151,7 +152,142 @@ class ListenSearchHit {
 
 /// Reads a book aloud with the phone's text-to-speech voices.
 class ListenPlayerController extends GetxController implements TtsOwner {
-  ListenLibraryController get library => Get.find<ListenLibraryController>();
+  /// The Listen library, when this player belongs to it (null in story mode).
+  ListenLibraryController? get _library =>
+      !isStory && Get.isRegistered<ListenLibraryController>()
+          ? Get.find<ListenLibraryController>()
+          : null;
+
+  // ── Story mode: reading a HuxNovel chapter aloud from the reader ───────────
+  String? storySlug;
+  String storyCover = '';
+  String storyAuthor = '';
+  int storyTotalChapters = 0;
+  /// Chapter number of each entry in [chapters] (story mode).
+  final List<int> storyChapterNumbers = [];
+  final RxBool fetchingNextChapter = false.obs;
+  bool get isStory => storySlug != null;
+
+  /// HuxNovel chapter number being read (story mode), else 0.
+  int get storyChapterNumber =>
+      isStory && chapterIndex.value < storyChapterNumbers.length
+          ? storyChapterNumbers[chapterIndex.value]
+          : 0;
+
+  /// Start (or return to) reading a story chapter from the reading screen.
+  /// Returns false when there's nothing to read (e.g. a locked chapter).
+  Future<bool> openStoryChapter({
+    required String slug,
+    required String storyTitle,
+    required String author,
+    required String cover,
+    required int chapterNumber,
+    required String chapterTitle,
+    required String html,
+    int totalChapters = 0,
+  }) async {
+    // Already on this chapter — just show the player again
+    if (storySlug == slug && storyChapterNumber == chapterNumber && book.value != null) {
+      return true;
+    }
+    final paragraphs = [for (final b in htmlToBlocks(html)) b.text];
+    if (paragraphs.isEmpty) return false;
+    await _stopSpeech();
+    storySlug = slug;
+    storyCover = cover;
+    storyAuthor = author;
+    storyTotalChapters = totalChapters;
+    storyChapterNumbers
+      ..clear()
+      ..add(chapterNumber);
+    chapters = [ParsedChapter(chapterTitle.isEmpty ? 'Chapter $chapterNumber' : chapterTitle, paragraphs)];
+    final words = chapters.first.wordCount;
+    book.value = ListenBook(
+      id: 'story:$slug',
+      title: storyTitle,
+      author: author,
+      format: 'STORY',
+      addedAt: DateTime.now(),
+      wordCount: words,
+      chapterTitles: [chapters.first.title],
+      chapterWords: [words],
+    );
+    chapterIndex.value = 0;
+    paragraphIndex.value = 0;
+    sentenceIndex.value = 0;
+    _clearWord();
+    _notificationShown = false;
+    return true;
+  }
+
+  /// Fetch a story chapter's text. Null (with a message) when it's locked,
+  /// missing or couldn't load.
+  Future<ParsedChapter?> _fetchStoryChapter(int number) async {
+    if (number < 1 || (storyTotalChapters > 0 && number > storyTotalChapters)) {
+      AppAlert.info(number < 1 ? 'This is the first chapter.' : 'That was the last chapter.');
+      return null;
+    }
+    fetchingNextChapter.value = true;
+    final res = await ApiService.getChapter(storySlug!, number);
+    fetchingNextChapter.value = false;
+    if (res['success'] != true) {
+      if (res['status'] == 404) {
+        AppAlert.info('That was the last chapter.');
+      } else {
+        AppAlert.error('Couldn\'t load chapter $number. Check your connection.');
+      }
+      return null;
+    }
+    final data = res['data'];
+    final locked = data['is_locked'] == true && data['is_unlocked'] != true;
+    final paragraphs = locked
+        ? const <String>[]
+        : [for (final b in htmlToBlocks(data['content']?.toString() ?? '')) b.text];
+    if (paragraphs.isEmpty) {
+      AppAlert.info(locked
+          ? 'Chapter $number is locked — unlock it in the reader to keep listening.'
+          : 'Chapter $number has no text to read.');
+      return null;
+    }
+    return ParsedChapter(data['title']?.toString() ?? 'Chapter $number', paragraphs);
+  }
+
+  /// Load the story chapter after the last one loaded and move to it.
+  Future<void> _continueStory({required bool keepPlaying}) async {
+    final next = storyChapterNumbers.last + 1;
+    final ch = await _fetchStoryChapter(next);
+    if (storySlug == null) return; // session stopped while loading
+    if (ch == null) {
+      if (keepPlaying) pause();
+      return;
+    }
+    chapters = [...chapters, ch];
+    storyChapterNumbers.add(next);
+    book.value?.chapterTitles.add(ch.title);
+    _moveToChapter(chapters.length - 1, keepPlaying: keepPlaying && isPlaying.value);
+  }
+
+  /// Load the story chapter before the first one loaded and move to it.
+  Future<void> _previousStoryChapter() async {
+    final prev = storyChapterNumbers.first - 1;
+    final ch = await _fetchStoryChapter(prev);
+    if (ch == null || storySlug == null) return;
+    chapters = [ch, ...chapters];
+    storyChapterNumbers.insert(0, prev);
+    book.value?.chapterTitles.insert(0, ch.title);
+    await jumpTo(0, 0, startPlaying: isPlaying.value);
+  }
+
+  /// "Stop listening": stop the voice and end the session.
+  Future<void> stopSession() async {
+    await pause();
+    await _hideNotification();
+    book.value = null;
+    chapters = [];
+    storyChapterNumbers.clear();
+    storySlug = null;
+    TtsBridge.instance.release(this);
+  }
 
   final Rxn<ListenBook> book = Rxn<ListenBook>();
   List<ParsedChapter> chapters = [];
@@ -256,7 +392,7 @@ class ListenPlayerController extends GetxController implements TtsOwner {
       chapterIndex.value = 0;
       paragraphIndex.value = 0;
     }
-    library.persistSoon();
+    _library?.persistSoon();
     loadingBook.value = false;
     _notificationShown = false;
     return true;
@@ -391,10 +527,14 @@ class ListenPlayerController extends GetxController implements TtsOwner {
         _moveToChapter(chapterIndex.value + 1, keepPlaying: true);
         return;
       }
+      if (isStory) {
+        _continueStory(keepPlaying: true);
+        return;
+      }
       // End of book
       book.value?.finished = true;
       pause();
-      library.persistSoon();
+      _library?.persistSoon();
       AppAlert.success('You finished "${book.value?.title ?? 'the book'}"!');
       return;
     }
@@ -487,12 +627,17 @@ class ListenPlayerController extends GetxController implements TtsOwner {
   void nextChapter() {
     if (chapterIndex.value < chapters.length - 1) {
       jumpTo(chapterIndex.value + 1, 0, startPlaying: isPlaying.value);
+    } else if (isStory) {
+      _stopSpeech().then((_) => _continueStory(keepPlaying: isPlaying.value));
     }
   }
 
   void previousChapter() {
     // Restart this chapter if we're into it, otherwise go to the previous one
-    if (paragraphIndex.value > 1 || chapterIndex.value == 0) {
+    if (isStory && chapterIndex.value == 0 && paragraphIndex.value <= 1 &&
+        storyChapterNumber > 1) {
+      _previousStoryChapter();
+    } else if (paragraphIndex.value > 1 || chapterIndex.value == 0) {
       jumpTo(chapterIndex.value, 0, startPlaying: isPlaying.value);
     } else {
       jumpTo(chapterIndex.value - 1, 0, startPlaying: isPlaying.value);
@@ -597,14 +742,14 @@ class ListenPlayerController extends GetxController implements TtsOwner {
     b.bookmarks.sort((x, y) => x.chapter != y.chapter
         ? x.chapter.compareTo(y.chapter)
         : x.paragraph.compareTo(y.paragraph));
-    library.persistSoon();
+    _library?.persistSoon();
     book.refresh();
     AppAlert.success('Bookmark added');
   }
 
   void removeBookmark(ListenBookmark m) {
     book.value?.bookmarks.remove(m);
-    library.persistSoon();
+    _library?.persistSoon();
     book.refresh();
   }
 
@@ -667,8 +812,9 @@ class ListenPlayerController extends GetxController implements TtsOwner {
     if (b == null) return;
     b.chapter = chapterIndex.value;
     b.paragraph = paragraphIndex.value;
-    if (!Get.isRegistered<ListenLibraryController>()) return;
-    immediate ? library.persistNow() : library.persistSoon();
+    final lib = _library;
+    if (lib == null) return;
+    immediate ? lib.persistNow() : lib.persistSoon();
   }
 
   // ── Speech engine events (via TtsBridge) ───────────────────────────────────
@@ -733,7 +879,7 @@ class ListenPlayerController extends GetxController implements TtsOwner {
       await TtsBridge.media.invokeMethod(_notificationShown ? 'update' : 'show', {
         'title': book.value?.title ?? 'Listening',
         'artist': chapterTitle,
-        'albumArt': '',
+        'albumArt': isStory ? storyCover : '',
         'isPlaying': true,
         'duration': 0,
         'position': 0,

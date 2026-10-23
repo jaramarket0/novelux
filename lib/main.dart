@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'package:novelux/screen/listen/listen_chat_head.dart';
 import 'dart:convert';
 
 import 'package:novelux/config/ThemeController.dart';
@@ -374,6 +375,14 @@ class MyApp extends StatelessWidget {
         initialRoute: AppRoutes.splashScreen,
         // CNTabBarRouteObserver lets the iOS 26 glass hide under sheets/dialogs
         navigatorObservers: [appRouteObserver, CNTabBarRouteObserver()],
+        // Floating "now listening" head, above every screen
+        builder:
+            (context, child) => Stack(
+              children: [
+                if (child != null) child,
+                const ListenChatHeadLayer(),
+              ],
+            ),
       ),
     );
   }

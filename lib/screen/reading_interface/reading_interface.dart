@@ -17,6 +17,7 @@ import 'package:novelux/screen/library/controller/library_controller.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
 import 'package:novelux/screen/reading_interface/audio_player_screen.dart';
 import 'package:novelux/screen/reading_interface/ambient_sound.dart';
+import 'package:novelux/screen/listen/listen_chat_head.dart';
 //import 'package:novelux/screen/reading_schedule/reading_schedule_screen.dart';
 import 'package:novelux/screen/reading_interface/controller/reading_interface_controller.dart';
 import 'package:novelux/screen/reading_interface/controller/continue_reading_controller.dart';
@@ -1204,12 +1205,38 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
 
   // The covering page was popped and the reader is visible again.
   @override
-  void didPopNext() => _blockScreenshots();
+  void didPopNext() {
+    _blockScreenshots();
+    _catchUpWithListening();
+  }
+
+  /// Back from the listening player: show the chapter the voice reached.
+  /// (Only when it's the player being closed — not comments, gifts etc.)
+  void _catchUpWithListening() {
+    final slug = widget.storySlug ?? ctrl.currentStorySlug;
+    if (slug == null || !ListenChatHead.instance.playerIsOpen) return;
+    var n = 0;
+    var title = '';
+    if (StoryListen.active && StoryListen.controller.storySlug == slug) {
+      n = StoryListen.controller.storyChapterNumber;
+      title = StoryListen.controller.chapterTitle;
+    } else if (StoryListen.lastSlug == slug) {
+      // "Stop listening" ended the session just before coming back
+      n = StoryListen.lastChapter;
+      title = StoryListen.lastChapterTitle;
+    }
+    StoryListen.lastSlug = null;
+    if (n > 0 && n != ctrl.currentChapterNumber.value) {
+      ctrl.loadChapter(slug, n, title);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _blockScreenshots();
+    // The floating listening head hides while a reader is open
+    ListenChatHead.instance.readerOpened();
     ctrl = Get.put(ReadingInterfaceController());
     ctrl.resetUiState();
     if (widget.offlineContent != null) {
@@ -1314,6 +1341,8 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
     _unblockScreenshots();
     ctrl.stopReadingTimer();
     ctrl.stopAutoScroll();
+    // Leaving the reader mid-listen brings up the floating head
+    ListenChatHead.instance.readerClosed();
     // Background sound plays only while reading
     if (Get.isRegistered<AmbientSoundController>()) {
       Get.delete<AmbientSoundController>();
@@ -2970,64 +2999,80 @@ class _NovelUpReadingInterfaceState extends State<NovelUpReadingInterface>
   }
 
   // ── Listen FAB ────────────────────────────────────────────────────────────
-  Widget _buildListenFab() => GestureDetector(
-    onTap: () {
-      // Init AudioPlayerController if not already
-      if (!Get.isRegistered<AudioPlayerController>()) {
-        Get.put(AudioPlayerController(), permanent: true);
-      }
-      final audioCtrl = Get.find<AudioPlayerController>();
-      audioCtrl.loadChapter(
-        content: ctrl.chapterContent.value,
-        chapter: ctrl.currentChapter,
-        story: ctrl.bookTitle,
+  /// Opens the read-along player for this chapter. If this book is already
+  /// playing, it just brings the player back without restarting.
+  Future<void> _openListenPlayer() async {
+    final slug = widget.storySlug ?? ctrl.currentStorySlug;
+    if (slug == null) return;
+    final player = StoryListen.controller;
+    final samePlaying = StoryListen.isPlaying && player.storySlug == slug;
+    if (!samePlaying) {
+      final ok = await player.openStoryChapter(
+        slug: slug,
+        storyTitle: ctrl.bookTitle.isNotEmpty ? ctrl.bookTitle : (widget.storyTitle ?? ''),
+        author: widget.author ?? '',
         cover: widget.coverUrl ?? '',
-        author: widget.author!,
+        chapterNumber: ctrl.currentChapterNumber.value,
+        chapterTitle: ctrl.currentChapter,
+        html: ctrl.chapterContent.value,
+        totalChapters: ctrl.totalChapters.value > 0
+            ? ctrl.totalChapters.value
+            : (widget.totalChapter ?? 0),
       );
-      myLog.log(
-        'navigating to audio screen with storySlug=${widget.storySlug} image: Path=${widget.coverUrl}, author: ${widget.author}',
-      );
-      Get.to(
-        () => AudioPlayerScreen(
-          widget.coverUrl ?? '',
-          widget.author ?? 'Unkown Author',
-          widget.storySlug!.replaceAll('-', ' ').capitalize!,
-        ),
-        transition: Transition.downToUp,
-        duration: const Duration(milliseconds: 300),
-      );
-    },
-    child: Container(
-      width: 80,
-      height: 32,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2a2a1a),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: depperBlue.withValues(alpha: 0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(LucideIcons.headphones300, color: depperBlue, size: 14),
-          SizedBox(width: 4),
-          Text(
-            'Listen',
-            style: TextStyle(
-              color: depperBlue,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+      if (!ok) {
+        AppAlert.info(ctrl.isCurrentChapterLocked.value
+            ? 'Unlock this chapter to listen to it.'
+            : 'Nothing to read aloud in this chapter yet.');
+        return;
+      }
+      player.play();
+    }
+    ctrl.hideAllControls();
+    StoryListen.openPlayer();
+  }
+
+  Widget _buildListenFab() => GestureDetector(
+    onTap: _openListenPlayer,
+    child: Obx(() {
+      final playingHere = StoryListen.isRegistered &&
+          StoryListen.controller.isPlaying.value &&
+          StoryListen.controller.storySlug == (widget.storySlug ?? ctrl.currentStorySlug);
+      return Container(
+        width: 86,
+        height: 32,
+        decoration: BoxDecoration(
+          color: playingHere ? depperBlue : const Color(0xFF2a2a1a),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: depperBlue.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
-      ),
-    ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              playingHere ? Icons.graphic_eq_rounded : LucideIcons.headphones300,
+              color: playingHere ? Colors.white : depperBlue,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              playingHere ? 'Playing' : 'Listen',
+              style: TextStyle(
+                color: playingHere ? Colors.white : depperBlue,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }),
   );
 
   // ── Settings panel — pixel-perfect match to screenshot ───────────────────

@@ -40,6 +40,137 @@ class AppUpdateService {
     }
   }
 
+  /// Manual "Check for updates" button. Unlike [checkForUpdate] this always
+  /// gives the reader feedback — a spinner while it checks, then either an
+  /// update flow or a "you're up to date" message — and ignores the one-shot
+  /// and throttle guards so it works every time it's tapped.
+  static Future<void> checkForUpdateInteractive() async {
+    if (kIsWeb) {
+      _snack('Updates', 'Update checks are not available on the web.');
+      return;
+    }
+
+    // Blocking spinner so a slow network call doesn't look like a dead button.
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
+
+    try {
+      final bool updateStarted;
+      if (Platform.isAndroid) {
+        updateStarted = await _checkAndroidInteractive();
+      } else if (Platform.isIOS) {
+        updateStarted = await _checkIOSInteractive();
+      } else {
+        updateStarted = false;
+      }
+      _closeLoader();
+      if (!updateStarted) {
+        _snack('You\'re up to date', 'You have the latest version installed.');
+      }
+    } catch (e) {
+      debugPrint('[AppUpdate] interactive check failed: $e');
+      _closeLoader();
+      _snack(
+        'Couldn\'t check for updates',
+        'Please check your connection and try again.',
+      );
+    }
+  }
+
+  static void _closeLoader() {
+    if (Get.isDialogOpen ?? false) Get.back();
+  }
+
+  static void _snack(String title, String message) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 90),
+      duration: const Duration(seconds: 4),
+    );
+  }
+
+  // ── Interactive variants (used by the manual button) ─────────────────────
+
+  /// Returns true if an update flow was started (so the caller skips the
+  /// "up to date" message).
+  static Future<bool> _checkAndroidInteractive() async {
+    final info = await InAppUpdate.checkForUpdate();
+
+    if (info.updateAvailability ==
+        UpdateAvailability.developerTriggeredUpdateInProgress) {
+      await InAppUpdate.performImmediateUpdate();
+      return true;
+    }
+    if (info.updateAvailability != UpdateAvailability.updateAvailable) {
+      return false;
+    }
+
+    if (info.updatePriority >= 4 && info.immediateUpdateAllowed) {
+      await InAppUpdate.performImmediateUpdate();
+      return true;
+    }
+    if (info.flexibleUpdateAllowed) {
+      final result = await InAppUpdate.startFlexibleUpdate();
+      if (result == AppUpdateResult.success) {
+        Get.snackbar(
+          'Update ready',
+          'A new version of HuxNovel has been downloaded.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 10),
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 90),
+          mainButton: TextButton(
+            onPressed: InAppUpdate.completeFlexibleUpdate,
+            child: const Text('RESTART'),
+          ),
+        );
+      }
+      return true;
+    }
+    // An update exists but Play can't update in-app (e.g. too old a jump) —
+    // still tell the reader rather than claiming they're up to date.
+    _snack('Update available', 'A new version is available on Google Play.');
+    return true;
+  }
+
+  static Future<bool> _checkIOSInteractive() async {
+    final upgrader = Upgrader();
+    await upgrader.initialize();
+    if (!upgrader.isUpdateAvailable()) return false;
+
+    _closeLoader();
+    final storeVersion = upgrader.currentAppStoreVersion;
+    await Get.dialog(
+      CupertinoAlertDialog(
+        title: const Text('Update available'),
+        content: Text(
+          storeVersion == null
+              ? 'A new version of HuxNovel is available on the App Store.'
+              : 'HuxNovel $storeVersion is available on the App Store.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Get.back(),
+            child: const Text('Later'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () {
+              Get.back();
+              upgrader.sendUserToAppStore();
+            },
+            child: const Text('Update'),
+          ),
+        ],
+      ),
+      barrierDismissible: false,
+    );
+    return true;
+  }
+
   // ── Android: Google Play in-app updates ──────────────────────────────────
 
   static Future<void> _checkAndroid() async {

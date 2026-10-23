@@ -3,6 +3,7 @@ import 'package:flutter/src/widgets/framework.dart';
 import 'package:get/get.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_style.dart';
+import 'package:novelux/config/app_update_service.dart';
 import 'package:novelux/screen/about/controller/about_controller.dart';
 import 'package:novelux/screen/me/atomic_webview_screen.dart';
 import 'package:novelux/widgets/custom_image_view.dart';
@@ -78,7 +79,7 @@ class AboutScreen extends GetWidget<AboutController> {
                   Text('version 1.1.1.1', style: TextStyle(color: sub)),
                   SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: AppUpdateService.checkForUpdateInteractive,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: depperBlue,
                     ),

@@ -107,10 +107,12 @@ class MeScreen extends StatelessWidget {
               final isLoggedIn = auth.isLoggedIn.value;
 
               return ListView(
-                // Clears the floating bottom nav bar
-                padding: EdgeInsets.only(
-                  bottom: 100 + MediaQuery.paddingOf(context).bottom,
-                ),
+                // Clears the floating bottom nav bar. The nav already renders
+                // the system inset itself, so we only need a flat spacer here
+                // (matches the Explore/Genres tabs) — adding the inset again
+                // double-counted it and left a large empty gap after the last
+                // section.
+                padding: const EdgeInsets.only(bottom: 100),
                 children: [
                   // ── Page header ──────────────────────────────────────────
                   Padding(

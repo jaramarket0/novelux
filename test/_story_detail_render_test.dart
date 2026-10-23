@@ -136,6 +136,7 @@ _Ctrl _seed() {
     savedAt: DateTime(2026, 10, 21),
   );
   c.accentColor.value = const Color(0xFF695B4E);
+  c.totalChapters.value = 32; // only a page of chapters is loaded on open
   return c;
 }
 
