@@ -23,6 +23,7 @@ import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/language_controller.dart';
 import 'package:novelux/config/translations.dart';
 import 'package:novelux/config/ad_service.dart';
+import 'package:novelux/config/analytics_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/local_storage.dart';
 import 'package:novelux/config/logger.dart';
@@ -320,6 +321,10 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
+  // Firebase Analytics — automatic screen tracking is added to the app's
+  // navigatorObservers below; collection is off in debug builds.
+  await Get.putAsync<AnalyticsService>(() => AnalyticsService.init());
+
   // Local notifications plugin init (fast, in-process — needed before any show())
   await _initLocalNotifications();
 
@@ -373,8 +378,13 @@ class MyApp extends StatelessWidget {
         fallbackLocale: const Locale('en', 'US'),
         getPages: AppRoutes.pages,
         initialRoute: AppRoutes.splashScreen,
-        // CNTabBarRouteObserver lets the iOS 26 glass hide under sheets/dialogs
-        navigatorObservers: [appRouteObserver, CNTabBarRouteObserver()],
+        // CNTabBarRouteObserver lets the iOS 26 glass hide under sheets/dialogs.
+        // AnalyticsService.observer logs a screen_view on every route change.
+        navigatorObservers: [
+          appRouteObserver,
+          CNTabBarRouteObserver(),
+          AnalyticsService.to.observer,
+        ],
         // Floating "now listening" head, above every screen
         builder:
             (context, child) => Stack(

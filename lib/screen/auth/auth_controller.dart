@@ -293,6 +293,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:novelux/config/analytics_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/config/local_storage.dart';
@@ -378,6 +379,9 @@ class AuthController extends GetxController {
       isLoggedIn.value = true;
       TextInput.finishAutofillContext();
       await fetchMe();
+      if (Get.isRegistered<AnalyticsService>()) {
+        await AnalyticsService.to.logLogin(method: 'password');
+      }
       routePostAuth();
     } else {
       errorMessage.value = res['error'] ?? 'Login failed';
@@ -464,6 +468,9 @@ class AuthController extends GetxController {
         await _saveRefreshToken(data['refresh'] ?? '');
         isLoggedIn.value = true;
         await fetchMe();
+        if (Get.isRegistered<AnalyticsService>()) {
+          await AnalyticsService.to.logSignUp(method: 'password');
+        }
         // Go to preferences screen to pick categories
         clearAuthForm();
         Get.offAllNamed('/preferences_screen');
@@ -490,9 +497,17 @@ class AuthController extends GetxController {
       await _db.saveEmail(data['email'] ?? '');
       await _db.saveRole(data['role'] ?? 'reader');
       // Tie RevenueCat purchases to this account so VIP restores across devices
+      final accountId = (data['id'] ?? data['username'])?.toString() ?? '';
       if (Get.isRegistered<IAPService>()) {
-        final rcUserId = (data['id'] ?? data['username'])?.toString() ?? '';
-        await IAPService.to.logIn(rcUserId);
+        await IAPService.to.logIn(accountId);
+      }
+      // Same identity for analytics, plus segmentation properties.
+      if (Get.isRegistered<AnalyticsService>()) {
+        await AnalyticsService.to.setUser(
+          id: accountId,
+          role: data['role']?.toString(),
+          isVip: data['is_vip'] == true,
+        );
       }
     }
   }
@@ -517,6 +532,9 @@ class AuthController extends GetxController {
   Future<void> logout() async {
     if (Get.isRegistered<IAPService>()) {
       await IAPService.to.logOut();
+    }
+    if (Get.isRegistered<AnalyticsService>()) {
+      await AnalyticsService.to.clearUser();
     }
     await _db.logOut();
     isLoggedIn.value = false;
@@ -667,6 +685,12 @@ class AuthController extends GetxController {
           await _db.saveEmail(data['email'] ?? account.email);
           isLoggedIn.value = true;
           await fetchMe();
+          if (Get.isRegistered<AnalyticsService>()) {
+            // code 200 = existing account (login); otherwise a new sign-up.
+            data['code'] == 200
+                ? await AnalyticsService.to.logLogin(method: 'google')
+                : await AnalyticsService.to.logSignUp(method: 'google');
+          }
           routePostAuth(
             fallbackRoute: data['code'] == 200 ? '/main_screen' : '/preferences_screen',
           );
@@ -727,6 +751,11 @@ class AuthController extends GetxController {
         await _db.saveEmail(data['email'] ?? credential.email ?? '');
         isLoggedIn.value = true;
         await fetchMe();
+        if (Get.isRegistered<AnalyticsService>()) {
+          data['code'] == 200
+              ? await AnalyticsService.to.logLogin(method: 'apple')
+              : await AnalyticsService.to.logSignUp(method: 'apple');
+        }
         routePostAuth(
           fallbackRoute: data['code'] == 200 ? '/main_screen' : '/preferences_screen',
         );

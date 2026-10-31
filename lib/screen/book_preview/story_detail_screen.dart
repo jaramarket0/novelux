@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
+import 'package:novelux/config/analytics_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
@@ -193,6 +194,9 @@ class StoryDetailController extends GetxController {
     }
     final data = res['data'];
     story.value = data;
+    if (Get.isRegistered<AnalyticsService>()) {
+      AnalyticsService.to.logStoryOpen(slug, title: data['title']?.toString());
+    }
     isBookmarked.value = data['is_bookmarked'] ?? false;
     _extractAccentColor(getCoverUrl(data));
     avgRating.value =
