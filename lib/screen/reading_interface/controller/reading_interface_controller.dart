@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:novelux/config/app_review_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/me/ReadingScheduleScreen.dart';
@@ -488,6 +489,8 @@ class ReadingInterfaceController extends GetxController {
       isNextChapterLocked.value = false;
     }
     await loadChapter(currentStorySlug!, nextNum, nextChapterTitle);
+    // Finished a chapter and kept going: a good moment to ask for a rating
+    if (!isCurrentChapterLocked.value) AppReviewService.chapterFinished();
   }
 
   Map? _getChapterData(int chapterNum) {

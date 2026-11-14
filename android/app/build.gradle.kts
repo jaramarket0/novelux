@@ -72,6 +72,13 @@ flutter {
 }
 
 
+// facebook_app_events only needs the SDK's core (app events). Leave out
+// Login / Share / Gaming so they don't add size to the app.
+configurations.all {
+    listOf("facebook-login", "facebook-share", "facebook-gamingservices", "facebook-messenger",
+           "facebook-common").forEach { exclude(group = "com.facebook.android", module = it) }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.media:media:1.6.0")

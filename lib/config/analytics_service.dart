@@ -1,8 +1,11 @@
+import 'package:facebook_app_events/facebook_app_events.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-/// Thin wrapper around Firebase Analytics.
+/// Thin wrapper around Firebase Analytics, plus the Meta (Facebook) SDK for
+/// the few events Meta ads optimise on (install/app open are logged by the
+/// SDK itself; sign-ups and purchases are logged here).
 ///
 /// Registered once at startup ([AnalyticsService.init]) and reachable anywhere
 /// with `AnalyticsService.to`. Automatic screen tracking is handled by
@@ -14,6 +17,7 @@ class AnalyticsService extends GetxService {
   static AnalyticsService get to => Get.find<AnalyticsService>();
 
   final FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+  final FacebookAppEvents meta = FacebookAppEvents();
 
   /// Drop this into `navigatorObservers` for automatic `screen_view` events.
   late final FirebaseAnalyticsObserver observer = FirebaseAnalyticsObserver(
@@ -78,6 +82,7 @@ class AnalyticsService extends GetxService {
   Future<void> logSignUp({String method = 'password'}) async {
     try {
       await analytics.logSignUp(signUpMethod: method);
+      await meta.logCompletedRegistration(registrationMethod: method);
     } catch (e) {
       debugPrint('[Analytics] logSignUp failed: $e');
     }
@@ -91,6 +96,7 @@ class AnalyticsService extends GetxService {
   }) async {
     try {
       await analytics.setUserId(id: id.isEmpty ? null : id);
+      if (id.isNotEmpty) await meta.setUserID(id);
       if (role != null) {
         await analytics.setUserProperty(name: 'role', value: role);
       }
@@ -109,9 +115,46 @@ class AnalyticsService extends GetxService {
   Future<void> clearUser() async {
     try {
       await analytics.setUserId(id: null);
+      await meta.clearUserID();
       await analytics.resetAnalyticsData();
     } catch (e) {
       debugPrint('[Analytics] clearUser failed: $e');
+    }
+  }
+
+  // ── Purchases (Meta ads can then find readers who pay, not just install) ──
+
+  /// A completed store purchase: coins, VIP subscription or a gift.
+  Future<void> logPurchase({
+    required String productId,
+    required double price,
+    required String currency,
+    required bool isSubscription,
+    String? orderId,
+  }) async {
+    try {
+      if (isSubscription) {
+        await meta.logSubscribe(
+          price: price,
+          currency: currency,
+          orderId: orderId ?? productId,
+          parameters: {'fb_content_id': productId},
+        );
+      } else {
+        await meta.logPurchase(
+          amount: price,
+          currency: currency,
+          parameters: {'fb_content_id': productId, 'fb_content_type': 'coins'},
+        );
+      }
+      await analytics.logPurchase(
+        value: price,
+        currency: currency,
+        transactionId: orderId,
+        items: [AnalyticsEventItem(itemId: productId)],
+      );
+    } catch (e) {
+      debugPrint('[Analytics] logPurchase failed: $e');
     }
   }
 

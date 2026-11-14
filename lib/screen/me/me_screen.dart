@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/api_service.dart';
 import 'package:novelux/config/app_alerts.dart';
+import 'package:novelux/config/app_review_service.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/iap_service.dart';
 import 'package:novelux/screen/about/about_screen.dart';
@@ -247,6 +248,18 @@ class MeScreen extends StatelessWidget {
                               'Sign In to Write',
                               () => Get.to(() => const LoginScreen()),
                             ),
+                          _row(
+                            p,
+                            LucideIcons.star,
+                            'Rate ${AppConstants.appName}',
+                            () async {
+                              final ok = await AppReviewService.openStoreReview();
+                              if (!ok) {
+                                Get.snackbar('Couldn\'t open the store',
+                                    'Please rate us from Google Play or the App Store.');
+                              }
+                            },
+                          ),
                           _row(
                             p,
                             LucideIcons.info,

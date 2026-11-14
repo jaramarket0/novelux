@@ -13,7 +13,28 @@
 				<key>SKAdNetworkIdentifier</key>
 				<string>cstr6suwn9.skadnetwork</string>
 			</dict>
+			<!-- Meta (Facebook) ad network -->
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>v9wttpbfk9.skadnetwork</string>
+			</dict>
+			<dict>
+				<key>SKAdNetworkIdentifier</key>
+				<string>n38lu8286q.skadnetwork</string>
+			</dict>
 		</array>
+		<!-- Meta (Facebook) SDK — measures installs from Meta ads. Same ids as
+		     android/app/src/main/res/values/strings.xml -->
+		<key>FacebookAppID</key>
+		<string>1501512871792837</string>
+		<key>FacebookClientToken</key>
+		<string>FB_CLIENT_TOKEN</string>
+		<key>FacebookDisplayName</key>
+		<string>HuxNovel</string>
+		<key>FacebookAutoLogAppEventsEnabled</key>
+		<true/>
+		<key>FacebookAdvertiserIDCollectionEnabled</key>
+		<true/>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>

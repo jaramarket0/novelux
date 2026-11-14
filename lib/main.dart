@@ -68,48 +68,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   myLog.log('Handling a background message: ${message.messageId}');
 
-  final FlutterLocalNotificationsPlugin bgPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@drawable/ic_notification');
-
-  const InitializationSettings initializationSettings = InitializationSettings(
-    android: initializationSettingsAndroid,
-  );
-
-  await bgPlugin.initialize(
-    settings: initializationSettings,
-    onDidReceiveNotificationResponse: selectNotificationStream.add,
-    onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
-  );
-
-  if (message.notification != null) {
-    final notification = message.notification!;
-    final android = message.notification?.android;
-
-    if (android != null) {
-      await bgPlugin.show(
-        id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
-        notificationDetails: const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel',
-            'High Importance Notifications',
-            channelDescription:
-                'This channel is used for important notifications.',
-            importance: Importance.max,
-            priority: Priority.max,
-            playSound: true,
-            enableVibration: true,
-            ticker: 'ticker',
-            icon: 'ic_notification',
-          ),
-        ),
-      );
-    }
-  }
+  // Nothing to show here: every push from the backend carries a
+  // `notification` block, so Android/iOS display it themselves and a tap
+  // reaches onMessageOpenedApp / getInitialMessage with its data. (Showing a
+  // second copy here produced a duplicate whose tap only opened the app.)
 }
 
 // ─── FCM foreground message handler ─────────────────────────────────────────
@@ -238,13 +200,25 @@ Future<void> _setupFcmInBackground(SendTokenService sendTokenService) async {
       myLog.log('App launched from notification: ${initialMessage.messageId}');
       // Opened by MainScreen once it's up (see NotificationRouter).
       NotificationRouter.setPending(initialMessage.data);
+    } else {
+      // A notification the app showed itself (while open) that was tapped
+      // after the app had been closed.
+      final launch = await flutterLocalNotificationsPlugin
+          .getNotificationAppLaunchDetails();
+      final payload = launch?.notificationResponse?.payload;
+      if ((launch?.didNotificationLaunchApp ?? false) && payload != null) {
+        try {
+          NotificationRouter.setPending(
+              Map<String, dynamic>.from(jsonDecode(payload) as Map));
+        } catch (_) {}
+      }
     }
 
     // Register message listeners
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen((msg) {
       myLog.log('Message clicked!: ${msg.data}');
-      NotificationRouter.open(msg.data);
+      NotificationRouter.openPush(msg.data);
     });
     selectNotificationStream.stream.listen(
       (response) => NotificationRouter.openPayload(response.payload),

@@ -49,6 +49,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
+import 'package:novelux/config/analytics_service.dart';
 import 'package:novelux/config/api_service.dart';
 import 'dart:developer' as myLog;
 
@@ -601,6 +602,8 @@ class IAPService extends GetxService {
 
       final result = await rc.Purchases.purchase(params);
       _applyCustomerInfo(result.customerInfo);
+      _logPurchase(productId, package?.storeProduct ?? product, isSubscription,
+          result.storeTransaction.transactionIdentifier);
 
       if (isSubscription) {
         // RevenueCat already verified the receipt; the entitlement is the
@@ -652,6 +655,23 @@ class IAPService extends GetxService {
       // Every branch above returns, so clear here rather than in each one.
       purchasingId.value = '';
     }
+  }
+
+  /// Report the sale to Firebase + Meta (for ad optimisation). Never throws.
+  void _logPurchase(
+    String productId,
+    rc.StoreProduct? product,
+    bool isSubscription,
+    String orderId,
+  ) {
+    if (product == null || !Get.isRegistered<AnalyticsService>()) return;
+    AnalyticsService.to.logPurchase(
+      productId: productId,
+      price: product.price,
+      currency: product.currencyCode,
+      isSubscription: isSubscription,
+      orderId: orderId,
+    );
   }
 
   /// Tell the backend about a purchase. The "receipt" field carries the
