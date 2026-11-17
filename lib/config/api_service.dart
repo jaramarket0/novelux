@@ -4319,6 +4319,15 @@ class ApiService {
   static Future<Map<String, dynamic>> getAdTasks() =>
       _request('GET', '/coins/ad-tasks/');
 
+  /// Book promotion to show on this app launch: {"promo": {...} | null}.
+  /// [seen] = promotion ids this device already showed (for guests).
+  static Future<Map<String, dynamic>> getNextPromo(List<String> seen) =>
+      _request('GET', '/promos/next/${seen.isEmpty ? '' : '?seen=${seen.join(',')}'}');
+
+  /// event: 'seen' or 'click'
+  static Future<Map<String, dynamic>> promoEvent(int id, String event) =>
+      _request('POST', '/promos/$id/$event/');
+
   /// Ad rewards: count one finished rewarded ad toward a task. The server
   /// pays the bonus when the last required ad is watched.
   static Future<Map<String, dynamic>> adTaskWatched(int taskId) =>

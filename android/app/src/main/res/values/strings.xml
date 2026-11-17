@@ -5,5 +5,5 @@
        developers.facebook.com → your app → App settings → Basic (App ID)
        and → Advanced → Security (Client token). Neither is a secret. -->
   <string name="facebook_app_id" translatable="false">1501512871792837</string>
-  <string name="facebook_client_token" translatable="false">FB_CLIENT_TOKEN</string>
+  <string name="facebook_client_token" translatable="false">1f21cd7536ffcaf5fa426855dfa3c38e</string>
 </resources>

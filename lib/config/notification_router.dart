@@ -5,6 +5,7 @@ import 'package:novelux/screen/auth/auth_controller.dart';
 import 'package:novelux/screen/author/author_dashboard_screen.dart';
 import 'package:novelux/screen/author/author_profile_screen.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
+import 'package:novelux/screen/me/vip_screen.dart';
 import 'package:novelux/screen/notification_screen/controller/notifcation_controller.dart';
 import 'package:novelux/screen/notification_screen/notification_screen.dart';
 import 'package:novelux/screen/reward_screen/reward_screen.dart';
@@ -16,6 +17,7 @@ import 'package:novelux/screen/reward_screen/reward_screen.dart';
 ///   {"story_slug": "moonbound", "chapter_number": "12"}  — new chapter / tip / comment
 ///   {"screen": "my_books" | "rejected_stories" | "earnings" | "contest", …} — author dashboard
 ///   {"screen": "rewards"}                                — rewards & tasks
+///   {"screen": "vip"}                                    — VIP plans
 ///   {"username": "ada"}                                  — a new follower's profile
 /// Anything else (announcements, KYC updates…) opens the notification list,
 /// so a tap always lands somewhere useful.
@@ -50,6 +52,7 @@ class NotificationRouter {
     return _slug(data) != null ||
         _authorScreens.contains(screen) ||
         screen == 'rewards' ||
+        screen == 'vip' ||
         _str(data, 'username') != null;
   }
 
@@ -72,6 +75,8 @@ class NotificationRouter {
       Get.to(() => const AuthorDashboardScreen());
     } else if (screen == 'rewards') {
       Get.to(() => const RewardsScreen());
+    } else if (screen == 'vip') {
+      Get.to(() => const VipScreen());
     } else if (slug != null) {
       Get.to(() => StoryDetailScreen(slug: slug));
     } else if (username != null) {
@@ -95,6 +100,10 @@ class NotificationRouter {
     }
     openPush(data);
   }
+
+  /// Whether a push / link launched the app (the home screen then skips its
+  /// launch promotion so the reader lands where they tapped).
+  static bool get hasPending => _pending != null;
 
   /// Remember a launch payload until the main screen calls [consumePending].
   static void setPending(Map<String, dynamic> data) => _pending = data;

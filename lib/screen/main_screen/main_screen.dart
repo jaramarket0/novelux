@@ -4,6 +4,7 @@ import 'package:novelux/config/ThemeController.dart';
 import 'package:novelux/config/app_style.dart';
 import 'package:novelux/config/app_update_service.dart';
 import 'package:novelux/config/notification_router.dart';
+import 'package:novelux/config/promo_service.dart';
 import 'package:novelux/screen/book_preview/story_detail_screen.dart';
 import 'package:novelux/screen/explore/explore_screen.dart';
 import 'package:novelux/screen/genres/genres_screen.dart';
@@ -34,7 +35,18 @@ class _MainScreenState extends State<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppUpdateService.checkForUpdate();
       // A push that launched the app (e.g. a new book) opens its target now.
+      final launchedByPush = NotificationRouter.hasPending;
       NotificationRouter.consumePending();
+      // Otherwise the reader landed on home: show a book promotion, if any
+      // (at most one per launch, each only once per reader).
+      if (!launchedByPush) {
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (!mounted) return;
+          PromoService.maybeShow(
+            stillOnHome: () => mounted && (ModalRoute.of(context)?.isCurrent ?? false),
+          );
+        });
+      }
     });
   }
 
